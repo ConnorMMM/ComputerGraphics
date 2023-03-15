@@ -19,7 +19,8 @@ public:
 	void InitialiseQuad(); // Will be used to make a simple quad
 	void InitialiseFullscreenQuad(); // Will be used for Post Processing
 	
-	void Initailise(); // Will be used for implemeting a primitive
+	void Initailise(unsigned int vertexCount, const Vertex* vertices,
+		unsigned int indexCount = 0, unsigned int* indices = nullptr); // Will be used for implemeting a primitive
 
 	virtual void Draw();
 
