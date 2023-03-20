@@ -43,6 +43,13 @@ void Mesh::InitialiseQuad()
 	vertices[4].normal = {0,1,0,0};
 	vertices[5].normal = {0,1,0,0};
 
+	vertices[0].texCoord = { 0, 1 }; // Bottom Left
+	vertices[1].texCoord = { 1, 1 }; // Bottom Right
+	vertices[2].texCoord = { 0, 0 }; // Top Left
+	vertices[3].texCoord = { 0, 0 }; // Top Left
+	vertices[4].texCoord = { 1, 1 }; // Bottom Right
+	vertices[5].texCoord = { 1, 0 }; // Top Right
+
 	//Fill the vertex buffer
 	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(Vertex), 
 		vertices, GL_STATIC_DRAW);
@@ -54,6 +61,10 @@ void Mesh::InitialiseQuad()
 	//Enable the second element as the normal
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_TRUE, sizeof(Vertex), (void*)16);
+
+	//Enable the third element as the texture coordinate
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)32);
 
 	// Next we unbind the buffers
 	glBindVertexArray(0);
@@ -89,6 +100,10 @@ void Mesh::Initailise(unsigned int vertexCount, const Vertex* vertices, unsigned
 	//Enable the second element as the normal
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_TRUE, sizeof(Vertex), (void*)16);
+
+	//Enable the third element as the texture coordinate
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)32);
 
 	// Bind the indices if there are any defined
 	if (indexCount != 0)

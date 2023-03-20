@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <imgui.h>
+#include <vector>
 
 using glm::vec3;
 using glm::vec4;
@@ -27,10 +28,10 @@ bool GraphicsApp::startup() {
 	Gizmos::create(10000, 10000, 10000, 10000);
 
 	// create simple camera transforms
-	m_viewMatrix = glm::lookAt(vec3(10), vec3(0), vec3(0, 1, 0));
-	m_projectionMatrix = glm::perspective(glm::pi<float>() * 0.25f, 16.0f / 9.0f, 0.1f, 1000.0f);
-
-	//InitialisePlanets();
+	m_viewMatrix = m_camera.GetViewMatrix();
+	m_projectionMatrix = m_camera.GetProjectionMatrix(getWindowWidth(), getWindowHeight());
+	
+	InitialisePlanets();
 
 	m_light.color = { 1,1,1 };
 	m_ambientLight = { 0.5,0.5,0.5 };
@@ -64,11 +65,8 @@ void GraphicsApp::update(float deltaTime) {
 	Gizmos::addTransform(mat4(1));
 
 	// Solar system
-	//m_sun->Update(deltaTime);
-	//m_sun->Draw();
-
-	// quit if we press escape
-	aie::Input* input = aie::Input::getInstance();
+	if (!m_planetsHidden)
+		m_sun->Update(deltaTime);
 
 	//Grab the time since the application has started
 	float time = getTime();
@@ -77,7 +75,10 @@ void GraphicsApp::update(float deltaTime) {
 	m_light.direction = 
 		glm::normalize(glm::vec3(glm::cos(time * 2), glm::sin(time * 2), 0));
 	
+	m_camera.Update(deltaTime);
 
+	// quit if we press escape
+	aie::Input* input = aie::Input::getInstance();
 	if (input->isKeyDown(aie::INPUT_KEY_ESCAPE))
 		quit();
 
@@ -90,25 +91,36 @@ void GraphicsApp::draw() {
 	clearScreen();
 
 	// update perspective based on screen size
-	m_projectionMatrix = glm::perspective(glm::pi<float>() * 0.25f, 
-		getWindowWidth() / (float)getWindowHeight(), 0.1f, 1000.0f);
+	m_viewMatrix = m_camera.GetViewMatrix();
+	m_projectionMatrix = m_camera.GetProjectionMatrix(getWindowWidth(), getWindowHeight());
+
+	// Solar system
+	if (!m_planetsHidden)
+		m_sun->Draw();
 
 	auto pv = m_projectionMatrix * m_viewMatrix;
 
 	// Draw the quad setup in QuadLoader()
-	if(!m_quadHidden)
-		QuadDraw(pv * m_quadTransform);
+	if (!m_quadHidden)
+		QuadTexturedDraw(pv * m_quadTransform);
+		//QuadDraw(pv * m_quadTransform);
 
 	// Draw the bunny setup in BunnyLoader()
-	//BunnyDraw(pv * m_bunnyTransform);
 	if(!m_bunnyHidden)
 		PhongDraw(pv * m_bunnyTransform, m_bunnyTransform);
+		//BunnyDraw(pv * m_bunnyTransform);
 
 	if(!m_squareHidden)
 		SquareDraw(pv * m_squareTransform);
 
 	if (!m_cylinderHidden)
 		CylinderDraw(pv * m_cylinderTransform);
+
+	if (!m_pyramidHidden)
+		PyramidDraw(pv * m_pyramidTransform);
+
+	if (!m_sphereHidden)
+		SphereDraw(pv * m_sphereTransform);
 
 	Gizmos::draw(m_projectionMatrix * m_viewMatrix);
 }
@@ -146,28 +158,30 @@ void GraphicsApp::InitialisePlanets()
 bool GraphicsApp::LaunchShaders()
 {
 	// Used for loading in a simple quad
-	if (!m_quadHidden) {
-		if (!QuadLoader())
-			return false;
-	}
+	//if (!QuadLoader())
+	//	return false;
+	if (!QuadTextureLoader())
+		return false;
 	
 	// Used for loading in a OBJ bunny
-	if (!m_bunnyHidden) {
-		if (!BunnyLoader())
-			return false;
-	}
+	if (!BunnyLoader())
+		return false;
 
 	// Used for loading in a primitive square
-	if (!m_squareHidden){
-		if (!SquareLoader())
-			return false;
-	}
+	if (!SquareLoader())
+		return false;
 
 	// Used for loading in a primitive cylinder
-	if (!m_cylinderHidden) {
-		if (!CylinderLoader(1, 2, 6))
-			return false;
-	}
+	if (!CylinderLoader(1, 2, 6))
+		return false;
+
+	// Used for loading in a primitive pyramid
+	if (!PyramidLoader(1, 2))
+		return false;
+
+	// Used for loading in a primitive sphere
+	if (!SphereLoader(4, 2, 1))
+		return false;
 
 	return true;
 }
@@ -182,14 +196,20 @@ void GraphicsApp::ImGUIRefresher()
 	ImGui::End();
 
 	ImGui::Begin("Primitive Settings");
-	if (ImGui::Button("Turn Bunny ON/OFF", { 100, 20 }))
+	if (ImGui::Button("Turn Planets ON/OFF", { 140, 20 }))
+		m_planetsHidden = !m_planetsHidden;
+	if (ImGui::Button("Turn Bunny ON/OFF", { 140, 20 }))
 		m_bunnyHidden = !m_bunnyHidden;
-	if (ImGui::Button("Turn Quad ON/OFF", { 100, 20 }))
+	if (ImGui::Button("Turn Quad ON/OFF", { 140, 20 }))
 		m_quadHidden = !m_quadHidden;
-	if (ImGui::Button("Turn Square ON/OFF", { 100, 20 }))
+	if (ImGui::Button("Turn Square ON/OFF", { 140, 20 }))
 		m_squareHidden = !m_squareHidden;
-	if (ImGui::Button("Turn Cylinder ON/OFF", { 100, 20 }))
+	if (ImGui::Button("Turn Cylinder ON/OFF", { 140, 20 }))
 		m_cylinderHidden = !m_cylinderHidden;
+	if (ImGui::Button("Turn Pyramid ON/OFF", { 140, 20 }))
+		m_pyramidHidden = !m_pyramidHidden;
+	if (ImGui::Button("Turn Sphere ON/OFF", { 140, 20 }))
+		m_sphereHidden = !m_sphereHidden;
 	ImGui::End();
 }
 
@@ -278,6 +298,56 @@ void GraphicsApp::BunnyDraw(glm::mat4 pvm)
 
 	// Draw the bunny using the Mesh's draw
 	m_bunnyMesh.draw();
+}
+
+bool GraphicsApp::QuadTextureLoader()
+{
+	m_textureShader.loadShader(aie::eShaderStage::VERTEX,
+		"./shaders/textured.vert");
+	m_textureShader.loadShader(aie::eShaderStage::FRAGMENT,
+		"./shaders/textured.frag");
+
+	if (m_textureShader.link() == false)
+	{
+		printf("Textured Shader has an Error: %s\n",
+			m_textureShader.getLastError());
+		return false;
+	}
+
+	if (m_gridTexture.load("./textures/numbered_grid.tga") == false)
+	{
+		printf("Failed to load the grid texture correctly!\n");
+		return false;
+	}
+
+	m_quadMesh.InitialiseQuad();
+
+	// This is a 10 'unit' wide quad
+	m_quadTransform = {
+		10, 0,  0,  0,
+		0,  10, 0,  0,
+		0,  0,  10, 0,
+		0,  0,  0,  1
+	};
+
+	return true;
+}
+void GraphicsApp::QuadTexturedDraw(glm::mat4 pvm)
+{
+	// Bind the shader
+	m_textureShader.bind();
+
+	// Bind the transform
+	m_textureShader.bindUniform("ProjectionViewModel", pvm);
+
+	// Bind the texture location
+	m_textureShader.bindUniform("diffuseTexture", 0);
+
+	//Bind the texture to a specific location
+	m_gridTexture.bind(0);
+
+	// Draw the quad using Mesh's draw
+	m_quadMesh.Draw();
 }
 
 void GraphicsApp::PhongDraw(glm::mat4 pvm, glm::mat4 transform)
@@ -370,27 +440,48 @@ bool GraphicsApp::CylinderLoader(float radius, float height, int segments)
 		return false;
 	}
 
-	// Defined as 8 vertices for the 12 triangles
-	//Mesh::Vertex vertices[segments * 2];
-	Mesh::Vertex vertices[8];
+	// Defined as 2 vertices for each segment
+	Mesh::Vertex* vertices = new Mesh::Vertex[segments * 2 + 2];
 
+	vertices[0].position = { 0, 0,  0, 1 };
+	vertices[1].position = { 0, height,  0, 1 };
+	for (int i = 0; i < segments * 2; i++)
+	{
+		vertices[i + 2].position = { sin((PI * 2 / segments) * (i / 2)) * radius, 
+			height * (i % 2),  cos((PI * 2 / segments) * (i / 2)) * radius, 1 };
+	}
 
-	vertices[0].position = { -0.5f, 0,  0.5f, 1 };
-	vertices[1].position = { 0.5f, 0,  0.5f, 1 };
-	vertices[2].position = { -0.5f, 0, -0.5f, 1 };
-	vertices[3].position = { 0.5f, 0, -0.5f, 1 };
+	unsigned int* indices = new unsigned int[segments * 12];
 
-	vertices[4].position = { -0.5f, 1, 0.5f, 1 };
-	vertices[5].position = { 0.5f, 1, 0.5f, 1 };
-	vertices[6].position = { -0.5f, 1, -0.5f, 1 };
-	vertices[7].position = { 0.5f, 1, -0.5f, 1 };
+	int indicesIndex = 0;
+	for (int i = 2; i < (segments * 2) + 2; i += 2)
+	{
+		int lastPoints = 0;
+		if (i >= segments * 2)
+			lastPoints = segments * 2;
+		// First triangle (face)
+		indices[indicesIndex] = i;
+		indices[indicesIndex + 1] = i + 2 - lastPoints;
+		indices[indicesIndex + 2] = i + 1;
+		// Second triangle (face)
+		indices[indicesIndex + 3] = i + 1;
+		indices[indicesIndex + 4] = i + 2 - lastPoints;
+		indices[indicesIndex + 5] = i + 3 - lastPoints;
+		// Third triangle (top)
+		indices[indicesIndex + 6] = i + 1;
+		indices[indicesIndex + 7] = i + 3 - lastPoints;
+		indices[indicesIndex + 8] = 1;
+		// Fourth triangle (bottom)
+		indices[indicesIndex + 9] = i + 2 - lastPoints;
+		indices[indicesIndex + 10] = i;
+		indices[indicesIndex + 11] = 0;
+		indicesIndex += 12;
+	}
 
-	unsigned int indices[36] = { 0,2,1, 1,2,3, 0,1,4, 4,1,5, 1,3,5, 5,3,7, 3,2,7, 7,2,6, 2,0,6, 6,0,4, 4,5,6, 6,5,7 };
-
-	m_squareMesh.Initailise(8, vertices, 36, indices);
+	m_cylinderMesh.Initailise(segments * 2 + 2, vertices, segments * 12, indices);
 
 	// This is a 10 'unit' wide square
-	m_squareTransform = {
+	m_cylinderTransform = {
 		1, 0,  0,  0,
 		0,  1, 0,  0,
 		0,  0,  1, 0,
@@ -399,7 +490,6 @@ bool GraphicsApp::CylinderLoader(float radius, float height, int segments)
 
 	return true;
 }
-
 void GraphicsApp::CylinderDraw(glm::mat4 pvm)
 {
 	// Bind the shader
@@ -412,3 +502,152 @@ void GraphicsApp::CylinderDraw(glm::mat4 pvm)
 	m_cylinderMesh.Draw();
 }
 
+bool GraphicsApp::PyramidLoader(float width, float height)
+{
+	m_simpleShader.loadShader(aie::eShaderStage::VERTEX,
+		"./shaders/simple.vert");
+	m_simpleShader.loadShader(aie::eShaderStage::FRAGMENT,
+		"./shaders/simple.frag");
+
+	if (m_simpleShader.link() == false)
+	{
+		printf("Simple Shader has an Error: %s\n",
+			m_simpleShader.getLastError());
+		return false;
+	}
+
+	Mesh::Vertex vertices[5];
+	vertices[0].position = { 0, height, 0, 1 };
+	vertices[1].position = { -0.5f * width, 0,  0.5f * width, 1 };
+	vertices[2].position = { 0.5f * width, 0,  0.5f * width, 1 };
+	vertices[3].position = { -0.5f * width, 0, -0.5f * width, 1 };
+	vertices[4].position = { 0.5f * width, 0, -0.5f * width, 1 };
+
+	unsigned int indices[18] = { 4,3,2, 2,3,1, 1,2,0, 2,4,0, 4,3,0, 3,1,0};
+
+	m_pyramidMesh.Initailise(5, vertices, 18, indices);
+
+	// This is a 10 'unit' wide square
+	m_pyramidTransform = {
+		1, 0,  0,  0,
+		0,  1, 0,  0,
+		0,  0,  1, 0,
+		0,  0,  0,  1
+	};
+
+	return true;
+}
+void GraphicsApp::PyramidDraw(glm::mat4 pvm)
+{
+	// Bind the shader
+	m_simpleShader.bind();
+
+	// Bind the transform
+	m_simpleShader.bindUniform("ProjectionViewModel", pvm);
+
+	// Draw the quad using Mesh's draw
+	m_pyramidMesh.Draw();
+}
+
+bool GraphicsApp::SphereLoader(float segments, float rings, float radius)
+{
+	if (segments < 3 || rings < 2)
+		return false;
+
+	m_simpleShader.loadShader(aie::eShaderStage::VERTEX,
+		"./shaders/simple.vert");
+	m_simpleShader.loadShader(aie::eShaderStage::FRAGMENT,
+		"./shaders/simple.frag");
+
+	if (m_simpleShader.link() == false)
+	{
+		printf("Simple Shader has an Error: %s\n",
+			m_simpleShader.getLastError());
+		return false;
+	}
+
+	Mesh::Vertex* vertices = new Mesh::Vertex[segments * (rings - 1) + 2];
+	int verticesIndex = 0;
+	for (int r = 0; r <= rings; r++)
+	{
+		if (r == 0)
+		{
+			vertices[verticesIndex].position = { 0, radius, 0, 1 };
+			verticesIndex++;
+			continue;
+		}
+		if (r == rings)
+		{
+			vertices[verticesIndex].position = { 0, -radius, 0, 1 };
+			verticesIndex++;
+			continue;
+		}
+
+		float phi = ((PI * 2) / rings) * r;
+		for (int s = 0; s < segments; s++)
+		{
+			float theta = ((PI * 2) / segments) * s;
+			vertices[verticesIndex].position = { radius * sin(phi) * cos(theta), 
+				radius * sin(phi) * sin(theta), radius * cos(phi), 1};
+			verticesIndex++;
+		}
+	}
+
+	unsigned int indices[24] = { 1,2,0, 2,3,0, 3,4,0, 4,1,0 };
+	//unsigned int* indices = new unsigned int[((segments * 2) + ((rings - 2) * segments * 2)) * 3];
+	/*int indicesIndex = 0;
+	for (int s = 0; s < segments; s++)
+	{
+		for (int r = 0; r < rings; r++)
+		{
+			if (r == 0)
+			{
+				indices[indicesIndex] = s + 1;
+				indices[indicesIndex + 1] = s + 2 > segments ? 1 : s + 2;
+				indices[indicesIndex + 2] = 0;
+				indicesIndex += 3;
+				continue;
+			}
+			if (r == rings - 1)
+			{
+				indices[indicesIndex] = s + 2 > segments ? 1 + ((rings - 2) * segments) : s + 2 + ((rings - 2) * segments);
+				indices[indicesIndex + 1] = s + 1 + ((rings - 2) * segments);
+				indices[indicesIndex + 2] = ((rings - 2) * segments) + 1;
+				indicesIndex += 3;
+				continue;
+			}
+
+			indices[indicesIndex] = s + 1 + ((r - 1) * segments);
+			indices[indicesIndex + 1] = s + 2 > segments ? 1 : s + 2 + ((r - 1) * segments);
+			indices[indicesIndex + 2] = s + 1 + ((r - 2) * segments);
+			indicesIndex += 3;
+			indices[indicesIndex] = s + 2 > segments ? 1 : s + 2 + ((r - 2) * segments);
+			indices[indicesIndex + 1] = s + 1 + ((r - 2) * segments);
+			indices[indicesIndex + 2] = s + 2 > segments ? 1 : s + 2 + ((r - 1) * segments);
+			indicesIndex += 3;
+		}
+	}*/
+
+	m_sphereMesh.Initailise(segments * (rings - 1) + 2, vertices, ((segments * 2) + ((rings - 2) * segments * 2)) * 3, indices);
+
+	// This is a 10 'unit' wide square
+	m_sphereTransform = {
+		1, 0,  0,  0,
+		0,  1, 0,  0,
+		0,  0,  1, 0,
+		0,  0,  0,  1
+	};
+
+	return true;
+}
+void GraphicsApp::SphereDraw(glm::mat4 pvm)
+{
+	// Bind the shader
+	m_simpleShader.bind();
+
+	// Bind the transform
+	m_simpleShader.bindUniform("ProjectionViewModel", pvm);
+
+	// Draw the quad using Mesh's draw
+	m_sphereMesh.Draw();
+}
