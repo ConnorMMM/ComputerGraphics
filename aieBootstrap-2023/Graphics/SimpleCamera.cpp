@@ -25,7 +25,7 @@ void SimpleCamera::Update(float deltaTime)
 	glm::vec3 forward(glm::cos(phiR) * glm::cos(thetaR), glm::sin(phiR),
 		glm::cos(phiR) * glm::sin(thetaR));
 	glm::vec3 right(-glm::sin(thetaR), 0, glm::cos(thetaR));
-	glm::vec3 up(0, 1, 0);
+	glm::vec3 up = glm::cross(right, forward);
 
 	float shiftSpeed = 1;
 	if (input->isKeyDown(aie::INPUT_KEY_LEFT_SHIFT))

@@ -28,13 +28,22 @@ bool GraphicsApp::startup() {
 	Gizmos::create(10000, 10000, 10000, 10000);
 
 	// create simple camera transforms
-	m_viewMatrix = m_camera.GetViewMatrix();
-	m_projectionMatrix = m_camera.GetProjectionMatrix(getWindowWidth(), getWindowHeight());
+	m_camera = new FlyCamera();
+	m_camera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(), 
+		getWindowHeight(), 0.1, 1000);
+	m_viewMatrix = m_camera->GetViewMatrix();
+	m_projectionMatrix = m_camera->GetProjectionMatrix();
 	
 	InitialisePlanets();
-
-	m_light.color = { 1,1,1 };
+	
 	m_ambientLight = { 0.5,0.5,0.5 };
+
+	Light light;
+	light.color = { 1,1,1 };
+	light.direction = { 1, -1, 1 };
+
+	m_scene = new Scene((BaseCamera*)m_camera, glm::vec2(getWindowWidth(),
+		getWindowHeight()), light, m_ambientLight);
 
 	return LaunchShaders();
 }
@@ -42,6 +51,7 @@ bool GraphicsApp::startup() {
 void GraphicsApp::shutdown() {
 
 	Gizmos::destroy();
+	delete m_scene;
 }
 
 void GraphicsApp::update(float deltaTime) {
@@ -65,7 +75,7 @@ void GraphicsApp::update(float deltaTime) {
 	Gizmos::addTransform(mat4(1));
 
 	// Solar system
-	if (!m_planetsHidden)
+	if (m_planetsVisible)
 		m_sun->Update(deltaTime);
 
 	//Grab the time since the application has started
@@ -75,7 +85,7 @@ void GraphicsApp::update(float deltaTime) {
 	m_light.direction = 
 		glm::normalize(glm::vec3(glm::cos(time * 2), glm::sin(time * 2), 0));
 	
-	m_camera.Update(deltaTime);
+	m_camera->Update(deltaTime);
 
 	// quit if we press escape
 	aie::Input* input = aie::Input::getInstance();
@@ -91,35 +101,44 @@ void GraphicsApp::draw() {
 	clearScreen();
 
 	// update perspective based on screen size
-	m_viewMatrix = m_camera.GetViewMatrix();
-	m_projectionMatrix = m_camera.GetProjectionMatrix(getWindowWidth(), getWindowHeight());
+	m_viewMatrix = m_camera->GetViewMatrix();
+	m_projectionMatrix = m_camera->GetProjectionMatrix();
 
 	// Solar system
-	if (!m_planetsHidden)
+	if (m_planetsVisible)
 		m_sun->Draw();
 
 	auto pv = m_projectionMatrix * m_viewMatrix;
 
+	m_scene->Draw();
+
 	// Draw the quad setup in QuadLoader()
-	if (!m_quadHidden)
+	if (m_quadVisible)
 		QuadTexturedDraw(pv * m_quadTransform);
 		//QuadDraw(pv * m_quadTransform);
 
 	// Draw the bunny setup in BunnyLoader()
-	if(!m_bunnyHidden)
-		PhongDraw(pv * m_bunnyTransform, m_bunnyTransform);
-		//BunnyDraw(pv * m_bunnyTransform);
+	if(m_bunnyVisible)
+		ObjDraw(pv, m_bunnyTransform, &m_bunnyMesh, &m_phongShader);
 
-	if(!m_squareHidden)
+	//if (m_spearVisible)
+		//ObjDraw(pv, m_spearTransform, &m_spearMesh, &m_normalLitShader);
+		//PhongDraw(pv * m_spearTransform, m_spearTransform);
+
+	if (m_kamadaggarVisible)
+		ObjDraw(pv, m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader);
+
+
+	if(m_squareVisible)
 		SquareDraw(pv * m_squareTransform);
 
-	if (!m_cylinderHidden)
+	if (m_cylinderVisible)
 		CylinderDraw(pv * m_cylinderTransform);
 
-	if (!m_pyramidHidden)
+	if (m_pyramidVisible)
 		PyramidDraw(pv * m_pyramidTransform);
 
-	if (!m_sphereHidden)
+	if (m_sphereVisible)
 		SphereDraw(pv * m_sphereTransform);
 
 	Gizmos::draw(m_projectionMatrix * m_viewMatrix);
@@ -157,6 +176,25 @@ void GraphicsApp::InitialisePlanets()
 
 bool GraphicsApp::LaunchShaders()
 {
+	m_normalLitShader.loadShader(aie::eShaderStage::VERTEX, 
+		"./shaders/normalLit.vert");
+	m_normalLitShader.loadShader(aie::eShaderStage::FRAGMENT, 
+		"./shaders/normalLit.frag");
+	if (m_normalLitShader.link() == false)
+	{
+		printf("Normal Lit Phong Shader Error: %s\n", 
+			m_normalLitShader.getLastError());
+		return false;
+	}
+
+	m_phongShader.loadShader(aie::eShaderStage::VERTEX, "./shaders/phong.vert");
+	m_phongShader.loadShader(aie::eShaderStage::FRAGMENT, "./shaders/phong.frag");
+	if (m_phongShader.link() == false)
+	{
+		printf("Color Shader Error: %s\n", m_phongShader.getLastError());
+		return false;
+	}
+
 	// Used for loading in a simple quad
 	//if (!QuadLoader())
 	//	return false;
@@ -165,6 +203,13 @@ bool GraphicsApp::LaunchShaders()
 	
 	// Used for loading in a OBJ bunny
 	if (!BunnyLoader())
+		return false;
+
+	// Used for loading in a OBJ spear
+	if (!SpearLoader())
+		return false;
+
+	if (!KamaDaggerLoader())
 		return false;
 
 	// Used for loading in a primitive square
@@ -182,6 +227,9 @@ bool GraphicsApp::LaunchShaders()
 	// Used for loading in a primitive sphere
 	if (!SphereLoader(4, 2, 1))
 		return false;
+	
+	m_scene->AddInstance(new Instance(m_spearTransform, &m_spearMesh, 
+		&m_normalLitShader));
 
 	return true;
 }
@@ -196,20 +244,15 @@ void GraphicsApp::ImGUIRefresher()
 	ImGui::End();
 
 	ImGui::Begin("Primitive Settings");
-	if (ImGui::Button("Turn Planets ON/OFF", { 140, 20 }))
-		m_planetsHidden = !m_planetsHidden;
-	if (ImGui::Button("Turn Bunny ON/OFF", { 140, 20 }))
-		m_bunnyHidden = !m_bunnyHidden;
-	if (ImGui::Button("Turn Quad ON/OFF", { 140, 20 }))
-		m_quadHidden = !m_quadHidden;
-	if (ImGui::Button("Turn Square ON/OFF", { 140, 20 }))
-		m_squareHidden = !m_squareHidden;
-	if (ImGui::Button("Turn Cylinder ON/OFF", { 140, 20 }))
-		m_cylinderHidden = !m_cylinderHidden;
-	if (ImGui::Button("Turn Pyramid ON/OFF", { 140, 20 }))
-		m_pyramidHidden = !m_pyramidHidden;
-	if (ImGui::Button("Turn Sphere ON/OFF", { 140, 20 }))
-		m_sphereHidden = !m_sphereHidden;
+	ImGui::Checkbox("Show Planets", &m_planetsVisible);
+	ImGui::Checkbox("Show Bunny", &m_bunnyVisible);
+	ImGui::Checkbox("Show Spear", &m_spearVisible);
+	ImGui::Checkbox("Show Kama Dagger", &m_kamadaggarVisible);
+	ImGui::Checkbox("Show Quad", &m_quadVisible);
+	ImGui::Checkbox("Show Square", &m_squareVisible);
+	ImGui::Checkbox("Show Cylinder", &m_cylinderVisible);
+	ImGui::Checkbox("Show Pyramid", &m_pyramidVisible);
+	ImGui::Checkbox("Show Sphere", &m_sphereVisible);
 	ImGui::End();
 }
 
@@ -258,46 +301,6 @@ void GraphicsApp::QuadDraw(glm::mat4 pvm)
 
 	// Draw the quad using Mesh's draw
 	m_quadMesh.Draw();
-}
-
-bool GraphicsApp::BunnyLoader()
-{
-	m_phongShader.loadShader(aie::eShaderStage::VERTEX, "./shaders/phong.vert");
-	m_phongShader.loadShader(aie::eShaderStage::FRAGMENT, "./shaders/phong.frag");
-	if (m_phongShader.link() == false)
-	{
-		printf("Color Shader Error: %s\n", m_phongShader.getLastError());
-		return false;
-	}
-
-	if (m_bunnyMesh.load("./stanford/Bunny.obj") == false)
-	{
-		printf("Bunny Mesh Error!\n");
-		return false;
-	}
-
-	m_bunnyTransform = {
-		0.4f, 0,  0,  0,
-		0,  0.4f, 0,  0,
-		0,  0,  0.4f, 0,
-		0,  0,  0,  1
-	};
-
-	return true;
-}
-void GraphicsApp::BunnyDraw(glm::mat4 pvm)
-{
-	// Bind the shader
-	m_colorShader.bind();
-
-	// Bind the transform
-	m_colorShader.bindUniform("ProjectionViewModel", pvm);
-
-	// Bind the color
-	m_colorShader.bindUniform("BaseColor", vec4(1));
-
-	// Draw the bunny using the Mesh's draw
-	m_bunnyMesh.draw();
 }
 
 bool GraphicsApp::QuadTextureLoader()
@@ -350,6 +353,38 @@ void GraphicsApp::QuadTexturedDraw(glm::mat4 pvm)
 	m_quadMesh.Draw();
 }
 
+bool GraphicsApp::BunnyLoader()
+{
+	if (m_bunnyMesh.load("./stanford/Bunny.obj") == false)
+	{
+		printf("Bunny Mesh Error!\n");
+		return false;
+	}
+
+	m_bunnyTransform = {
+		0.4f, 0,  0,  0,
+		0,  0.4f, 0,  0,
+		0,  0,  0.4f, 0,
+		0,  0,  0,  1
+	};
+
+	return true;
+}
+void GraphicsApp::BunnyDraw(glm::mat4 pvm)
+{
+	// Bind the shader
+	m_colorShader.bind();
+
+	// Bind the transform
+	m_colorShader.bindUniform("ProjectionViewModel", pvm);
+
+	// Bind the color
+	m_colorShader.bindUniform("BaseColor", vec4(1));
+
+	// Draw the bunny using the Mesh's draw
+	m_bunnyMesh.draw();
+}
+
 void GraphicsApp::PhongDraw(glm::mat4 pvm, glm::mat4 transform)
 {
 	// Bind the phong shader
@@ -371,7 +406,70 @@ void GraphicsApp::PhongDraw(glm::mat4 pvm, glm::mat4 transform)
 	m_phongShader.bindUniform("ModelMatrix", transform);
 
 	// Draw the bunny using the Mesh's draw
-	m_bunnyMesh.draw();
+	m_spearMesh.draw();
+}
+
+bool GraphicsApp::SpearLoader()
+{
+	if (m_spearMesh.load("./soulspear/soulspear.obj", true, true) == false)
+	{
+		printf("Soulspear Mesh Error!\n");
+		return false;
+	}
+
+	m_spearTransform = {
+		1, 0,  0,  0,
+		0,  1, 0,  0,
+		0,  0,  1, 0,
+		0,  0,  0,  1
+	};
+
+	return true;
+}
+
+bool GraphicsApp::KamaDaggerLoader()
+{
+	if (m_kamadaggarMesh.load("./kamadagger/kamadagger.obj", true, true) == false)
+	{
+		printf("Kama Dagger Mesh Error!\n");
+		return false;
+	}
+
+	m_kamadaggarTransform = {
+		.005, 0, 0, 0,
+		0, .005, 0, 0,
+		0, 0, .005, 0,
+		0, 0, 0, 1
+	};
+
+	return true;
+}
+
+void GraphicsApp::ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMesh, aie::ShaderProgram* shader)
+{
+	// Bind the shader
+	shader->bind();
+
+	// Bind the camera position
+	shader->bindUniform("CameraPosition",
+		vec3(glm::inverse(m_viewMatrix)[3]));
+
+	// Bind the directional light we defined
+	shader->bindUniform("LightDirection", m_light.direction);
+	shader->bindUniform("LightColor", m_light.color);
+	shader->bindUniform("AmbientColor", m_ambientLight);
+
+	// Bind the texture location
+	shader->bindUniform("diffuseTexture", 0);
+
+	// Bind the pvm using the one provided
+	shader->bindUniform("ProjectionViewModel", pv * transform);
+
+	// Bind the transform using the one provided
+	shader->bindUniform("ModelMatrix", transform);
+
+	// Draw the spear using the Mesh's draw
+	objMesh->draw();
 }
 
 bool GraphicsApp::SquareLoader()
@@ -551,8 +649,16 @@ void GraphicsApp::PyramidDraw(glm::mat4 pvm)
 
 bool GraphicsApp::SphereLoader(float segments, float rings, float radius)
 {
-	if (segments < 3 || rings < 2)
+	if (segments < 3)
+	{
+		printf("Number of segments of a sphere must be 3 or higher.\n");
 		return false;
+	}
+	if (rings < 2)
+	{
+		printf("Number of rings of a sphere must be 2 or higher.\n");
+		return false;
+	}
 
 	m_simpleShader.loadShader(aie::eShaderStage::VERTEX,
 		"./shaders/simple.vert");
@@ -566,7 +672,7 @@ bool GraphicsApp::SphereLoader(float segments, float rings, float radius)
 		return false;
 	}
 
-	Mesh::Vertex* vertices = new Mesh::Vertex[segments * (rings - 1) + 2];
+	Mesh::Vertex* vertices = new Mesh::Vertex[(segments * (rings - 1)) + 2];
 	int verticesIndex = 0;
 	for (int r = 0; r <= rings; r++)
 	{
@@ -628,7 +734,8 @@ bool GraphicsApp::SphereLoader(float segments, float rings, float radius)
 		}
 	}*/
 
-	m_sphereMesh.Initailise(segments * (rings - 1) + 2, vertices, ((segments * 2) + ((rings - 2) * segments * 2)) * 3, indices);
+	m_sphereMesh.Initailise((segments * (rings - 1)) + 2, vertices, 
+		((segments * 2) + ((rings - 2) * segments * 2)) * 3, indices);
 
 	// This is a 10 'unit' wide square
 	m_sphereTransform = {

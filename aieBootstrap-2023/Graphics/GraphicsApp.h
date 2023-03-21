@@ -6,6 +6,10 @@
 #include "Mesh.h"
 #include "OBJMesh.h"
 #include "SimpleCamera.h"
+#include "FlyCamera.h"
+
+#include "Scene.h"
+#include "Instance.h"
 
 #include <glm/mat4x4.hpp>
 
@@ -40,8 +44,14 @@ protected:
 
 	bool BunnyLoader();
 	void BunnyDraw(glm::mat4 pvm);
-
 	void PhongDraw(glm::mat4 pvm, glm::mat4 transform);
+
+	bool SpearLoader();
+	bool KamaDaggerLoader();
+
+	// for textured OBJs
+	void ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMesh, aie::ShaderProgram* shader);
+
 
 	bool SquareLoader();
 	void SquareDraw(glm::mat4 pvm);
@@ -55,6 +65,8 @@ protected:
 	bool SphereLoader(float segments, float rings, float radius);
 	void SphereDraw(glm::mat4 pvm);
 
+	Scene*		m_scene;
+
 	// camera transforms
 	glm::mat4	m_viewMatrix;
 	glm::mat4	m_projectionMatrix;
@@ -67,12 +79,19 @@ protected:
 	aie::ShaderProgram m_colorShader;
 	aie::ShaderProgram m_phongShader;
 	aie::ShaderProgram m_textureShader;
+	aie::ShaderProgram m_normalLitShader;
 
 	Mesh			   m_quadMesh;
 	glm::mat4		   m_quadTransform;
 
 	aie::OBJMesh	   m_bunnyMesh;
 	glm::mat4		   m_bunnyTransform;
+
+	aie::OBJMesh	   m_spearMesh;
+	glm::mat4		   m_spearTransform;
+
+	aie::OBJMesh	   m_kamadaggarMesh;
+	glm::mat4		   m_kamadaggarTransform;
 
 	Mesh			   m_squareMesh;
 	glm::mat4		   m_squareTransform;
@@ -86,21 +105,25 @@ protected:
 	Mesh			   m_sphereMesh;
 	glm::mat4		   m_sphereTransform;
 
-	SimpleCamera	   m_camera;
+	FlyCamera*		   m_camera;
 
-	struct Light {
+	/*struct Light {
 		glm::vec3 direction;
 		glm::vec3 color;
-	};
+	};*/
 
 	Light m_light;
 	glm::vec3 m_ambientLight;
 
-	bool m_planetsHidden = true;
-	bool m_quadHidden = true;
-	bool m_bunnyHidden = true;
-	bool m_squareHidden = true;
-	bool m_cylinderHidden = true;
-	bool m_pyramidHidden = true;
-	bool m_sphereHidden = false;
+	bool m_planetsVisible = false;
+	bool m_quadVisible = false;
+	bool m_bunnyVisible = false;
+	bool m_spearVisible = false;
+	bool m_kamadaggarVisible = true;
+
+
+	bool m_squareVisible = false;
+	bool m_cylinderVisible = false;
+	bool m_pyramidVisible = false;
+	bool m_sphereVisible = false;
 };

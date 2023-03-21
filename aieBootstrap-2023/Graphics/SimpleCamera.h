@@ -2,8 +2,7 @@
 
 #include <glm/glm.hpp>
 
-class SimpleCamera
-{
+class SimpleCamera {
 public:
 	SimpleCamera();
 	~SimpleCamera() {};
