@@ -8,8 +8,7 @@
 class Planet
 {
 public:
-
-	Planet(float distanceFromParent, float radius, float speed, glm::vec4 colour);
+	Planet(const char* planetName, float distanceFromParent, float radius, float speed, glm::vec4 colour);
 	~Planet();
 
 	void Update(float deltaTime);
@@ -19,12 +18,17 @@ public:
 
 	void AddChild(Planet* child);
 
+	bool* Visible() { return &m_visible; }
+
 	glm::vec3 GetPosition();
+	std::vector<Planet*> GetPlanets();
+	const char* GetName() { return m_planetName; }
 
 	void SetParent(Planet* parent) { m_parent = parent; }
 	glm::mat4 GetMatrix() { return m_matrix; }
 
 protected:
+	const char* m_planetName;
 
 	std::vector<Planet*> m_children;
 	Planet* m_parent;
@@ -41,5 +45,7 @@ protected:
 	float m_ringInnerRadius;
 	float m_ringOuterRadius;
 	glm::vec4 m_ringColour;
+
+	bool m_visible;
 
 };

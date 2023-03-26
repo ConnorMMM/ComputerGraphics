@@ -5,8 +5,10 @@ using glm::vec4;
 using glm::mat4;
 using aie::Gizmos;
 
-Planet::Planet(float distanceFromParent, float radius, float speed, glm::vec4 colour)
+Planet::Planet(const char* planetName, float distanceFromParent, float radius, float speed, glm::vec4 colour)
 {
+	m_planetName = planetName;
+
 	m_distanceFromParent = distanceFromParent;
 	m_radius = radius;
 	m_speed = speed;
@@ -16,6 +18,8 @@ Planet::Planet(float distanceFromParent, float radius, float speed, glm::vec4 co
 	m_parent = nullptr;
 	m_matrix = mat4(1);
 	m_hasRing = false;
+
+	m_visible = true;
 }
 
 Planet::~Planet()
@@ -40,11 +44,14 @@ void Planet::Update(float deltaTime)
 
 void Planet::Draw()
 {
-	vec3 pos = GetPosition();
+	if (m_visible)
+	{
+		vec3 pos = GetPosition();
 
-	Gizmos::addSphere(pos, m_radius, 8, 8, m_colour, &m_matrix);
-	if (m_hasRing)
-		Gizmos::addRing(pos, m_ringInnerRadius, m_ringOuterRadius, 9, m_ringColour, &m_matrix);
+		Gizmos::addSphere(pos, m_radius, 8, 8, m_colour, &m_matrix);
+		if (m_hasRing)
+			Gizmos::addRing(pos, m_ringInnerRadius, m_ringOuterRadius, 9, m_ringColour, &m_matrix);
+	}
 
 	for each (Planet * child in m_children)
 	{
@@ -71,4 +78,19 @@ vec3 Planet::GetPosition()
 	vec3 pos = vec3(m_matrix[3][0], m_matrix[3][1], m_matrix[3][2]);
 
 	return pos;
+}
+
+std::vector<Planet*> Planet::GetPlanets()
+{
+	std::vector<Planet*> planets;
+	planets.push_back(this);
+	for each (Planet* child in m_children)
+	{
+		std::vector<Planet*> temp = child->GetPlanets();
+		for each (Planet* planet in temp)
+		{
+			planets.push_back(planet);
+		}
+	}
+	return planets;
 }

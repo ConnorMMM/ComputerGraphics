@@ -49,10 +49,19 @@ protected:
 	bool SpearLoader();
 	bool KamaDaggerLoader();
 
+	bool ObjLoader(aie::OBJMesh& objMesh, glm::mat4& transform,
+		float scale, const char* filepath, bool flipTexture);
+	bool ObjLoader(aie::OBJMesh& objMesh, glm::mat4& transform,
+		float scale, const char* filepath, const char* filename, 
+		bool flipTexture);
+
 	// for textured OBJs
 	void ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMesh, aie::ShaderProgram* shader);
 
 
+	bool LoadPrimitiveShapes();
+	void DrawPrimitiveShapes(glm::mat4 pv);
+	
 	bool SquareLoader();
 	void SquareDraw(glm::mat4 pvm);
 

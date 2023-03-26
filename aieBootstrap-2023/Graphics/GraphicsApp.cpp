@@ -6,6 +6,7 @@
 #include <glm/ext.hpp>
 #include <imgui.h>
 #include <vector>
+#include <string>
 
 using glm::vec3;
 using glm::vec4;
@@ -44,6 +45,9 @@ bool GraphicsApp::startup() {
 
 	m_scene = new Scene((BaseCamera*)m_camera, glm::vec2(getWindowWidth(),
 		getWindowHeight()), light, m_ambientLight);
+
+	m_scene->AddPointLight(vec3(5, 3, 0), vec3(1,0,0), 50);
+	m_scene->AddPointLight(vec3(-5, 3, 0), vec3(0,0,1), 50);
 
 	return LaunchShaders();
 }
@@ -128,50 +132,31 @@ void GraphicsApp::draw() {
 	if (m_kamadaggarVisible)
 		ObjDraw(pv, m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader);
 
-
-	if(m_squareVisible)
-		SquareDraw(pv * m_squareTransform);
-
-	if (m_cylinderVisible)
-		CylinderDraw(pv * m_cylinderTransform);
-
-	if (m_pyramidVisible)
-		PyramidDraw(pv * m_pyramidTransform);
-
-	if (m_sphereVisible)
-		SphereDraw(pv * m_sphereTransform);
+	DrawPrimitiveShapes(pv);
 
 	Gizmos::draw(m_projectionMatrix * m_viewMatrix);
 }
 
 void GraphicsApp::InitialisePlanets()
 {
-	m_sun = new Planet(0, 2, 0, vec4(1, 0.75f, 0, 1));
+	m_sun = new Planet("Sun", 0, 2, 0, vec4(1, 0.75f, 0, 1));
 
-	Planet* mercury = new Planet(1.5f, 0.3f, 1.60745f, vec4(0.3f, 0.2f, 0.5f, 1));
-	m_sun->AddChild(mercury);
-	Planet* venus = new Planet(1.9f, 0.3f, 1.17595f, vec4(0.8f, 0, 0, 1));
-	m_sun->AddChild(venus);
-	Planet* earth = new Planet(2.3f, 0.3f, 1, vec4(0, 0, 1, 1));
+	m_sun->AddChild(new Planet("Mercury", 1.5f, 0.3f, 1.60745f, vec4(0.3f, 0.2f, 0.5f, 1)));
+	m_sun->AddChild(new Planet("Venus", 1.9f, 0.3f, 1.17595f, vec4(0.8f, 0, 0, 1)));
+	Planet* earth = new Planet("Earth", 2.3f, 0.3f, 1, vec4(0, 0, 1, 1));
 	m_sun->AddChild(earth);
-	Planet* mars = new Planet(2.7f, 0.3f, 0.80849f, vec4(0.8f, 0.3f, 0.3f, 1));
-	m_sun->AddChild(mars);
-
-	Planet* jupiter = new Planet(3.4f, 0.8f, 0.43888f, vec4(0.8f, 0.7f, 0.6f, 1));
-	m_sun->AddChild(jupiter);
-	Planet* saturn = new Planet(4.3f, 0.7f, 0.32538f, vec4(0.8f, 0.75f, 0.75f, 1));
+	m_sun->AddChild(new Planet("Mars", 2.7f, 0.3f, 0.80849f, vec4(0.8f, 0.3f, 0.3f, 1)));
+	m_sun->AddChild(new Planet("Jupiter", 3.4f, 0.8f, 0.43888f, vec4(0.8f, 0.7f, 0.6f, 1)));
+	
+	Planet* saturn = new Planet("Saturn", 4.3f, 0.7f, 0.32538f, vec4(0.8f, 0.75f, 0.75f, 1));
 	saturn->AddRing(0.8f, 1.1f, vec4(1, 0.9f, 0.9f, 0.5f));
 	m_sun->AddChild(saturn);
-
-	Planet* uranus = new Planet(5.1f, 0.5f, 0.22867f, vec4(0, 0.8f, 0.8f, 1));
+	Planet* uranus = new Planet("Uranus", 5.1f, 0.5f, 0.22867f, vec4(0, 0.8f, 0.8f, 1));
 	uranus->AddRing(0.6f, 0.65f, vec4(0.8f, 0.8f, 1, 0.5f));
 	m_sun->AddChild(uranus);
-	Planet* neptune = new Planet(5.7f, 0.5f, 0.18233f, vec4(0, 0.7f, 1, 1));
-	m_sun->AddChild(neptune);
+	m_sun->AddChild(new Planet("Neptune", 5.7f, 0.5f, 0.18233f, vec4(0, 0.7f, 1, 1)));
 
-
-	Planet* moon = new Planet(0.25f, 0.1f, 1.023f, vec4(0.9f, 0.9f, 1, 1));
-	earth->AddChild(moon);
+	earth->AddChild(new Planet("Earth's Moon", 0.25f, 0.1f, 1.023f, vec4(0.9f, 0.9f, 1, 1)));
 }
 
 bool GraphicsApp::LaunchShaders()
@@ -196,8 +181,6 @@ bool GraphicsApp::LaunchShaders()
 	}
 
 	// Used for loading in a simple quad
-	//if (!QuadLoader())
-	//	return false;
 	if (!QuadTextureLoader())
 		return false;
 	
@@ -206,30 +189,25 @@ bool GraphicsApp::LaunchShaders()
 		return false;
 
 	// Used for loading in a OBJ spear
-	if (!SpearLoader())
+	if (!ObjLoader(m_spearMesh, m_spearTransform, 1, 
+		"./soulspear/soulspear.obj", "Spear", true))
 		return false;
 
-	if (!KamaDaggerLoader())
+	// Used for loading in a OBJ kama dagger
+	if (!ObjLoader(m_kamadaggarMesh, m_kamadaggarTransform, 0.005, 
+		"./kamadagger/kamadagger.obj", "Kama Dagger", true))
 		return false;
 
-	// Used for loading in a primitive square
-	if (!SquareLoader())
-		return false;
-
-	// Used for loading in a primitive cylinder
-	if (!CylinderLoader(1, 2, 6))
-		return false;
-
-	// Used for loading in a primitive pyramid
-	if (!PyramidLoader(1, 2))
-		return false;
-
-	// Used for loading in a primitive sphere
-	if (!SphereLoader(4, 2, 1))
+	// Used to call all the loading for the primitive shapes
+	if (!LoadPrimitiveShapes())
 		return false;
 	
-	m_scene->AddInstance(new Instance(m_spearTransform, &m_spearMesh, 
-		&m_normalLitShader));
+	for (int i = 0; i < 10; i++)
+	{
+		m_scene->AddInstance(new Instance(glm::vec3(i * 2, 0, 0), glm::vec3(0, i * 30, 0), 
+			glm::vec3(1, 1, 1), &m_spearMesh, &m_normalLitShader));
+	}
+
 
 	return true;
 }
@@ -254,6 +232,17 @@ void GraphicsApp::ImGUIRefresher()
 	ImGui::Checkbox("Show Pyramid", &m_pyramidVisible);
 	ImGui::Checkbox("Show Sphere", &m_sphereVisible);
 	ImGui::End();
+
+	if (m_planetsVisible)
+	{
+		std::vector<Planet*> planets = m_sun->GetPlanets();
+		ImGui::Begin("Solar System Settings");
+		for each (Planet* planet in planets)
+		{
+			ImGui::Checkbox(planet->GetName(), planet->Visible());
+		}
+		ImGui::End();
+	}
 }
 
 bool GraphicsApp::QuadLoader()
@@ -445,6 +434,45 @@ bool GraphicsApp::KamaDaggerLoader()
 	return true;
 }
 
+bool GraphicsApp::ObjLoader(aie::OBJMesh& objMesh, glm::mat4& transform, float scale, 
+	const char* filepath, bool flipTexture)
+{
+	if (objMesh.load(filepath, true, flipTexture) == false)
+	{
+		printf("Object Mesh Error!\n");
+		return false;
+	}
+
+	transform = {
+		scale, 0,     0,     0,
+		0,     scale, 0,     0,
+		0,     0,     scale, 0,
+		0,     0,     0,     1
+	};
+
+	return true;
+}
+bool GraphicsApp::ObjLoader(aie::OBJMesh& objMesh, glm::mat4& transform, float scale, 
+	const char* filepath, const char* filename, bool flipTexture)
+{
+	if (objMesh.load(filepath, true, flipTexture) == false)
+	{
+		std::string errorMessage = filename;
+		errorMessage += " Mesh Error!\n";
+		printf(errorMessage.c_str());
+		return false;
+	}
+
+	transform = {
+		scale, 0,     0,     0,
+		0,     scale, 0,     0,
+		0,     0,     scale, 0,
+		0,     0,     0,     1
+	};
+
+	return true;
+}
+
 void GraphicsApp::ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMesh, aie::ShaderProgram* shader)
 {
 	// Bind the shader
@@ -470,6 +498,42 @@ void GraphicsApp::ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMe
 
 	// Draw the spear using the Mesh's draw
 	objMesh->draw();
+}
+
+
+bool GraphicsApp::LoadPrimitiveShapes()
+{
+	// Used for loading in a primitive square
+	if (!SquareLoader())
+		return false;
+
+	// Used for loading in a primitive cylinder
+	if (!CylinderLoader(1, 2, 6))
+		return false;
+
+	// Used for loading in a primitive pyramid
+	if (!PyramidLoader(1, 2))
+		return false;
+
+	// Used for loading in a primitive sphere
+	if (!SphereLoader(4, 2, 1))
+		return false;
+
+	return true;
+}
+void GraphicsApp::DrawPrimitiveShapes(glm::mat4 pv)
+{
+	if (m_squareVisible)
+		SquareDraw(pv * m_squareTransform);
+
+	if (m_cylinderVisible)
+		CylinderDraw(pv * m_cylinderTransform);
+
+	if (m_pyramidVisible)
+		PyramidDraw(pv * m_pyramidTransform);
+
+	if (m_sphereVisible)
+		SphereDraw(pv * m_sphereTransform);
 }
 
 bool GraphicsApp::SquareLoader()
