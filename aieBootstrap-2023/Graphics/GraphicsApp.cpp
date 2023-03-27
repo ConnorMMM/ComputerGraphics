@@ -13,27 +13,48 @@ using glm::vec4;
 using glm::mat4;
 using aie::Gizmos;
 
-GraphicsApp::GraphicsApp() {
+GraphicsApp::GraphicsApp() 
+{
 
 }
 
-GraphicsApp::~GraphicsApp() {
+GraphicsApp::~GraphicsApp() 
+{
 
 }
 
-bool GraphicsApp::startup() {
-	
+bool GraphicsApp::startup() 
+{
 	setBackgroundColour(0.25f, 0.25f, 0.25f);
 
 	// initialise gizmo primitive counts
 	Gizmos::create(10000, 10000, 10000, 10000);
 
 	// create simple camera transforms
-	m_camera = new FlyCamera();
-	m_camera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(), 
+	m_flyCamera = new FlyCamera();
+	m_flyCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
-	m_viewMatrix = m_camera->GetViewMatrix();
-	m_projectionMatrix = m_camera->GetProjectionMatrix();
+
+	m_frontCamera = new StationaryCamera();
+	m_frontCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
+		getWindowHeight(), 0.1, 1000);
+	m_frontCamera->SetPosition(vec3(10, 0, 0));
+
+	m_rightCamera = new StationaryCamera();
+	m_rightCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
+		getWindowHeight(), 0.1, 1000);
+	m_rightCamera->SetPosition(vec3(0, 0, 10));
+	//m_topCamera->SetRotation(vec3(0, 1, 0));
+
+	m_topCamera = new StationaryCamera();
+	m_topCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
+		getWindowHeight(), 0.1, 1000);
+	m_topCamera->SetPosition(vec3(0, 10, 0));
+	//m_topCamera->SetRotation(vec3(1, 0, 0));
+
+	m_curCamera = m_flyCamera;
+	m_viewMatrix = m_curCamera->GetViewMatrix();
+	m_projectionMatrix = m_curCamera->GetProjectionMatrix();
 	
 	InitialisePlanets();
 	
@@ -43,7 +64,7 @@ bool GraphicsApp::startup() {
 	light.color = { 1,1,1 };
 	light.direction = { 1, -1, 1 };
 
-	m_scene = new Scene((BaseCamera*)m_camera, glm::vec2(getWindowWidth(),
+	m_scene = new Scene(m_curCamera, glm::vec2(getWindowWidth(),
 		getWindowHeight()), light, m_ambientLight);
 
 	m_scene->AddPointLight(vec3(5, 3, 0), vec3(1,0,0), 50);
@@ -52,14 +73,19 @@ bool GraphicsApp::startup() {
 	return LaunchShaders();
 }
 
-void GraphicsApp::shutdown() {
-
+void GraphicsApp::shutdown() 
+{
 	Gizmos::destroy();
 	delete m_scene;
 }
 
 void GraphicsApp::update(float deltaTime) {
 
+	if (m_scene->GetCamera() == m_curCamera)
+	{
+		m_scene->SetCamera(m_curCamera);
+	}
+	
 	// wipe the gizmos clean for this frame
 	Gizmos::clear();
 
@@ -89,7 +115,10 @@ void GraphicsApp::update(float deltaTime) {
 	m_light.direction = 
 		glm::normalize(glm::vec3(glm::cos(time * 2), glm::sin(time * 2), 0));
 	
-	m_camera->Update(deltaTime);
+	if (m_curCamera == (BaseCamera*)m_flyCamera)
+	{
+		m_flyCamera->Update(deltaTime);
+	}
 
 	// quit if we press escape
 	aie::Input* input = aie::Input::getInstance();
@@ -107,8 +136,16 @@ void GraphicsApp::draw() {
 	clearScreen();
 
 	// update perspective based on screen size
-	m_viewMatrix = m_camera->GetViewMatrix();
-	m_projectionMatrix = m_camera->GetProjectionMatrix();
+	m_viewMatrix = m_curCamera->GetViewMatrix();
+	m_projectionMatrix = m_curCamera->GetProjectionMatrix();
+
+#pragma region DrawCameras
+	m_flyCamera->Draw();
+	m_frontCamera->Draw();
+	m_rightCamera->Draw();
+	m_topCamera->Draw();
+#pragma endregion
+
 
 	// Solar system
 	if (m_planetsVisible)
@@ -121,8 +158,7 @@ void GraphicsApp::draw() {
 
 	if (m_modelsVisible)
 	{
-		if(m_spearVisible)
-			m_scene->Draw();
+		m_scene->Draw();
 
 		// Draw the bunny setup in BunnyLoader()
 		if (m_bunnyVisible)
@@ -132,18 +168,25 @@ void GraphicsApp::draw() {
 			ObjDraw(pv, m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader);
 	}
 
+	Gizmos::draw(m_projectionMatrix * m_viewMatrix);
+
 	// Unbind the target to return to the back
 	m_renderTarget.unbind();
 
 	clearScreen();
 
 	// Draw the quad setup in QuadLoader()
-	if (m_quadVisible)
-		QuadTexturedDraw(pv * m_quadTransform);
-		//QuadDraw(pv * m_quadTransform);
+	//if (m_quadVisible)
+		//QuadTexturedDraw(pv * m_quadTransform);
 
+	// Bind the post process shader and the texture
+	m_postProcessShader.bind();
+	m_postProcessShader.bindUniform("colorTarget", 0);
+	m_postProcessShader.bindUniform("postProcessTarget", m_postProcessTarget);
+	m_renderTarget.getTarget(0).bind(0);
 
-	Gizmos::draw(m_projectionMatrix * m_viewMatrix);
+	m_fullScreenQuad.Draw();
+
 }
 
 void GraphicsApp::InitialisePlanets()
@@ -211,35 +254,52 @@ bool GraphicsApp::LaunchShaders()
 			m_simpleShader.getLastError());
 		return false;
 	}
+
+	// Post Processing Shader
+	m_postProcessShader.loadShader(aie::eShaderStage::VERTEX, "./shaders/post.vert");
+	m_postProcessShader.loadShader(aie::eShaderStage::FRAGMENT, "./shaders/post.frag");
+	if (m_postProcessShader.link() == false)
+	{
+		printf("Post Process Shader Error: %s\n", m_postProcessShader.getLastError());
+		return false;
+	}
 #pragma endregion
 
 	// Used for loading in a simple quad
 	if (!QuadTextureLoader())
 		return false;
+
+	// Create a full screen quad
+	m_fullScreenQuad.InitialiseFullscreenQuad();
 	
+#pragma region LoadingOBJMeshes
 	// Used for loading in a OBJ bunny
 	if (!BunnyLoader())
 		return false;
 
 	// Used for loading in a OBJ spear
-	if (!ObjLoader(m_spearMesh, m_spearTransform, 1, 
+	if (!ObjLoader(m_spearMesh, m_spearTransform, 1,
 		"./soulspear/soulspear.obj", "Spear", true))
 		return false;
 
 	// Used for loading in a OBJ kama dagger
-	if (!ObjLoader(m_kamadaggarMesh, m_kamadaggarTransform, 0.005, 
+	if (!ObjLoader(m_kamadaggarMesh, m_kamadaggarTransform, 0.005,
 		"./kamadagger/kamadagger.obj", "Kama Dagger", true))
 		return false;
+#pragma endregion
 
+#pragma region LoadingPrimitiveMeshes
 	// Used to call all the loading for the primitive shapes
 	if (!LoadPrimitiveShapes())
 		return false;
+#pragma endregion
 	
 	for (int i = 0; i < 10; i++)
 	{
 		m_scene->AddInstance(new Instance(glm::vec3(i * 2, 0, 0), glm::vec3(0, i * 30, 0), 
 			glm::vec3(1, 1, 1), &m_spearMesh, &m_normalLitShader));
 	}
+	m_scene->AddInstance(new Instance(m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader));
 
 
 	return true;

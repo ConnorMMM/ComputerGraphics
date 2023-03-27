@@ -7,6 +7,7 @@
 #include "OBJMesh.h"
 #include "SimpleCamera.h"
 #include "FlyCamera.h"
+#include "StationaryCamera.h"
 
 #include "Scene.h"
 #include "Instance.h"
@@ -59,6 +60,8 @@ protected:
 
 	// for textured OBJs
 	void ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMesh, aie::ShaderProgram* shader);
+	
+	int m_postProcessTarget = 1;
 
 
 	bool LoadPrimitiveShapes();
@@ -86,10 +89,12 @@ protected:
 	aie::ShaderProgram m_phongShader;
 	aie::ShaderProgram m_textureShader;
 	aie::ShaderProgram m_normalLitShader;
+	aie::ShaderProgram m_postProcessShader;
 
-	aie::RenderTarget m_renderTarget;
+	aie::RenderTarget  m_renderTarget;
 
 	Mesh			   m_quadMesh;
+	Mesh			   m_fullScreenQuad;
 	glm::mat4		   m_quadTransform;
 
 	aie::OBJMesh	   m_bunnyMesh;
@@ -117,7 +122,12 @@ protected:
 	Mesh			   m_sphereMesh;
 	glm::mat4		   m_sphereTransform;
 
-	FlyCamera*		   m_camera;
+	BaseCamera*		  m_curCamera;
+	FlyCamera*		  m_flyCamera;
+	StationaryCamera* m_frontCamera;
+	StationaryCamera* m_rightCamera;
+	StationaryCamera* m_topCamera;
+	
 
 	/*struct Light {
 		glm::vec3 direction;

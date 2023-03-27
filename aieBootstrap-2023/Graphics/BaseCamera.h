@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Gizmos.h"
+
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
@@ -13,6 +15,7 @@ public:
 	~BaseCamera() {};
 
 	virtual void Update(float deltaTime);
+	void Draw();
 	
 	// Getters
 	vec3 GetPosition() 

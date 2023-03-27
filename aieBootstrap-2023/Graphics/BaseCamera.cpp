@@ -15,6 +15,17 @@ void BaseCamera::Update(float deltaTime)
 {
 }
 
+void BaseCamera::Draw()
+{
+	float thetaR = glm::radians(m_theta);
+	float phiR = glm::radians(m_phi);
+	glm::vec3 forward(glm::cos(phiR) * glm::cos(thetaR), glm::sin(phiR),
+		glm::cos(phiR) * glm::sin(thetaR));
+
+	aie::Gizmos::addSphere(m_position, .25f, 6, 8, glm::vec4(.7f, .5f, 0, 1));
+	aie::Gizmos::addLine(m_position, m_position + forward, glm::vec4(1, 0, 0, 1));
+}
+
 void BaseCamera::SetProjectionMatrix(float fieldOfView, float aspectRatio, float near, float far)
 {
 	m_aspectRatio = aspectRatio;
