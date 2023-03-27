@@ -8,7 +8,8 @@
 class Planet
 {
 public:
-	Planet(const char* planetName, float distanceFromParent, float radius, float speed, glm::vec4 colour);
+	Planet(const char* planetName, float distanceFromParent, 
+		float radius, float orbitSpeed, glm::vec4 colour);
 	~Planet();
 
 	void Update(float deltaTime);
@@ -18,14 +19,27 @@ public:
 
 	void AddChild(Planet* child);
 
-	bool* Visible() { return &m_visible; }
 
+	Planet* GetParent() { return m_parent; }
 	glm::vec3 GetPosition();
 	std::vector<Planet*> GetPlanets();
 	const char* GetName() { return m_planetName; }
+	bool HasRing() { return m_hasRing; }
 
 	void SetParent(Planet* parent) { m_parent = parent; }
 	glm::mat4 GetMatrix() { return m_matrix; }
+
+	bool* Visible() { return &m_visible; }
+	float* Colour() { return &m_colour[0]; }
+	float* OrbitSpeed() { return &m_orbitSpeed; }
+	float* OrbitAngle() { return &m_orbitAngle; }
+	float* RotationSpeed() { return &m_rotationSpeed; }
+	float* DistanceFromParent() { return &m_distanceFromParent; }
+	
+	bool* Ring() { return &m_hasRing; }
+	float* RingInnerRadius() { return &m_ringInnerRadius; }
+	float* RingOuterRadius() { return &m_ringOuterRadius; }
+	float* RingColour() { return &m_ringColour[0]; }
 
 protected:
 	const char* m_planetName;
@@ -35,9 +49,13 @@ protected:
 
 	glm::mat4 m_matrix;
 	float m_radius;
-	float m_speed;
-	float m_rotation;
 	float m_distanceFromParent;
+
+	float m_orbitSpeed;
+	float m_orbitAngle;
+
+	float m_rotationSpeed;
+	float m_rotation;
 
 	glm::vec4 m_colour;
 

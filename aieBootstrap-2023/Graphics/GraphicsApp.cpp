@@ -100,6 +100,8 @@ void GraphicsApp::update(float deltaTime) {
 }
 
 void GraphicsApp::draw() {
+	// Bind the render target as the first part of our draw function
+	m_renderTarget.bind();
 
 	// wipe the screen to the background colour
 	clearScreen();
@@ -113,26 +115,33 @@ void GraphicsApp::draw() {
 		m_sun->Draw();
 
 	auto pv = m_projectionMatrix * m_viewMatrix;
+	
+	if(m_primitiveShapesVisible)
+		DrawPrimitiveShapes(pv);
 
-	m_scene->Draw();
+	if (m_modelsVisible)
+	{
+		if(m_spearVisible)
+			m_scene->Draw();
+
+		// Draw the bunny setup in BunnyLoader()
+		if (m_bunnyVisible)
+			ObjDraw(pv, m_bunnyTransform, &m_bunnyMesh, &m_phongShader);
+
+		if (m_kamadaggarVisible)
+			ObjDraw(pv, m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader);
+	}
+
+	// Unbind the target to return to the back
+	m_renderTarget.unbind();
+
+	clearScreen();
 
 	// Draw the quad setup in QuadLoader()
 	if (m_quadVisible)
 		QuadTexturedDraw(pv * m_quadTransform);
 		//QuadDraw(pv * m_quadTransform);
 
-	// Draw the bunny setup in BunnyLoader()
-	if(m_bunnyVisible)
-		ObjDraw(pv, m_bunnyTransform, &m_bunnyMesh, &m_phongShader);
-
-	//if (m_spearVisible)
-		//ObjDraw(pv, m_spearTransform, &m_spearMesh, &m_normalLitShader);
-		//PhongDraw(pv * m_spearTransform, m_spearTransform);
-
-	if (m_kamadaggarVisible)
-		ObjDraw(pv, m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader);
-
-	DrawPrimitiveShapes(pv);
 
 	Gizmos::draw(m_projectionMatrix * m_viewMatrix);
 }
@@ -161,17 +170,27 @@ void GraphicsApp::InitialisePlanets()
 
 bool GraphicsApp::LaunchShaders()
 {
-	m_normalLitShader.loadShader(aie::eShaderStage::VERTEX, 
+	if (m_renderTarget.initialise(1, getWindowWidth(),
+		getWindowHeight()) == false)
+	{
+		printf("Render Target Error!\n");
+		return false;
+	}
+
+#pragma region LoadingShaders
+	// Textured Mesh Shader
+	m_normalLitShader.loadShader(aie::eShaderStage::VERTEX,
 		"./shaders/normalLit.vert");
-	m_normalLitShader.loadShader(aie::eShaderStage::FRAGMENT, 
+	m_normalLitShader.loadShader(aie::eShaderStage::FRAGMENT,
 		"./shaders/normalLit.frag");
 	if (m_normalLitShader.link() == false)
 	{
-		printf("Normal Lit Phong Shader Error: %s\n", 
+		printf("Normal Lit Phong Shader Error: %s\n",
 			m_normalLitShader.getLastError());
 		return false;
 	}
 
+	// Untextured Mesh Shader
 	m_phongShader.loadShader(aie::eShaderStage::VERTEX, "./shaders/phong.vert");
 	m_phongShader.loadShader(aie::eShaderStage::FRAGMENT, "./shaders/phong.frag");
 	if (m_phongShader.link() == false)
@@ -179,6 +198,20 @@ bool GraphicsApp::LaunchShaders()
 		printf("Color Shader Error: %s\n", m_phongShader.getLastError());
 		return false;
 	}
+
+	// Simple Untextured Mesh Shader
+	m_simpleShader.loadShader(aie::eShaderStage::VERTEX,
+		"./shaders/simple.vert");
+	m_simpleShader.loadShader(aie::eShaderStage::FRAGMENT,
+		"./shaders/simple.frag");
+
+	if (m_simpleShader.link() == false)
+	{
+		printf("Simple Shader has an Error: %s\n",
+			m_simpleShader.getLastError());
+		return false;
+	}
+#pragma endregion
 
 	// Used for loading in a simple quad
 	if (!QuadTextureLoader())
@@ -221,16 +254,11 @@ void GraphicsApp::ImGUIRefresher()
 		&m_light.color[0], 0.1, 0, 1);
 	ImGui::End();
 
-	ImGui::Begin("Primitive Settings");
-	ImGui::Checkbox("Show Planets", &m_planetsVisible);
-	ImGui::Checkbox("Show Bunny", &m_bunnyVisible);
-	ImGui::Checkbox("Show Spear", &m_spearVisible);
-	ImGui::Checkbox("Show Kama Dagger", &m_kamadaggarVisible);
-	ImGui::Checkbox("Show Quad", &m_quadVisible);
-	ImGui::Checkbox("Show Square", &m_squareVisible);
-	ImGui::Checkbox("Show Cylinder", &m_cylinderVisible);
-	ImGui::Checkbox("Show Pyramid", &m_pyramidVisible);
-	ImGui::Checkbox("Show Sphere", &m_sphereVisible);
+	ImGui::Begin("Toggle Settings");
+	ImGui::Checkbox("Toggle Planets", &m_planetsVisible);
+	ImGui::Checkbox("Toggle Primitive Shapes", &m_primitiveShapesVisible);
+	ImGui::Checkbox("Toggle Models", &m_modelsVisible);
+	ImGui::Checkbox("Toggle Quad", &m_quadVisible);
 	ImGui::End();
 
 	if (m_planetsVisible)
@@ -239,8 +267,78 @@ void GraphicsApp::ImGUIRefresher()
 		ImGui::Begin("Solar System Settings");
 		for each (Planet* planet in planets)
 		{
-			ImGui::Checkbox(planet->GetName(), planet->Visible());
+			std::string planetName = planet->GetName();
+			std::string label = planetName + "Settings";
+			if (ImGui::CollapsingHeader(planetName.c_str()))
+			{
+				label = "Toggle " + planetName;
+				ImGui::Checkbox(label.c_str(), planet->Visible());
+				planetName += ": ";
+				label = planetName + "Colour";
+				ImGui::SliderFloat4(label.c_str(), planet->Colour(), 0, 1);
+				label = planetName + "Orbit Speed";
+				ImGui::SliderFloat(label.c_str(), planet->OrbitSpeed(), 0, 20);
+				label = planetName + "Orbit Angle";
+				ImGui::SliderFloat(label.c_str(), planet->OrbitAngle(), 0, 2 * PI);
+				label = planetName + "Rotation Speed";
+				ImGui::SliderFloat(label.c_str(), planet->RotationSpeed(), 0, 20);
+				if (planet->GetParent())
+				{
+					label = planetName + "Distance From " + planet->GetParent()->GetName();
+					ImGui::SliderFloat(label.c_str(), planet->DistanceFromParent(), 0, 30);
+				}
+				label = planetName + "Toggle Ring";
+				ImGui::Checkbox(label.c_str(), planet->Ring());
+				label = planetName + "Ring Settings";
+				if (planet->HasRing() && ImGui::CollapsingHeader(label.c_str()))
+				{
+					label = planetName + "Ring Inner Radius";
+					ImGui::SliderFloat(label.c_str(), planet->RingInnerRadius(), 0, 20);
+					label = planetName + "Ring Outer Radius";
+					ImGui::SliderFloat(label.c_str(), planet->RingOuterRadius(), 0, 20);
+					label = planetName + "Ring Colour";
+					ImGui::SliderFloat4(label.c_str(), planet->RingColour(), 0, 1);
+				}
+			}
 		}
+		ImGui::End();
+	}
+
+	if (m_primitiveShapesVisible)
+	{
+		ImGui::Begin("Primitive Settings");
+		ImGui::Checkbox("Toggle Square", &m_squareVisible);
+		ImGui::Checkbox("Toggle Cylinder", &m_cylinderVisible);
+		ImGui::Checkbox("Toggle Pyramid", &m_pyramidVisible);
+		ImGui::Checkbox("Toggle Sphere", &m_sphereVisible);
+		ImGui::End();
+	}
+
+	if (m_modelsVisible)
+	{
+		ImGui::Begin("Models Settings");
+		if (ImGui::CollapsingHeader("Bunny Settings"))
+		{
+			ImGui::Checkbox("Toggle Bunny", &m_bunnyVisible);
+			ImGui::DragFloat3("Bunny: Position", &m_bunnyTransform[3][0], .01);
+			if (ImGui::DragFloat("Bunny: Scale", &m_bunnyScale, .01, .01, 100))
+			{
+				m_bunnyScale <= 0 ? m_bunnyScale = 0.01 : m_bunnyScale;
+				float scale = 1 - (m_prevBunnyScale - m_bunnyScale);
+				m_bunnyTransform = glm::scale(m_bunnyTransform, vec3(scale));
+				m_prevBunnyScale = m_bunnyScale;
+			}
+			if (ImGui::DragFloat3("Bunny: Rotation", &m_curBunnyRotation[0], .01, 0, PI * 2))
+			{
+				vec3 angle = m_prevBunnyRotation - m_curBunnyRotation;
+				m_bunnyTransform = glm::rotate(m_bunnyTransform, angle[0], vec3(1, 0, 0));
+				m_bunnyTransform = glm::rotate(m_bunnyTransform, angle[1], vec3(0, 1, 0));
+				m_bunnyTransform = glm::rotate(m_bunnyTransform, angle[2], vec3(0, 0, 1));
+				m_prevBunnyRotation = m_curBunnyRotation;
+			}
+		}
+		ImGui::Checkbox("Toggle Spear", &m_spearVisible);
+		ImGui::Checkbox("Toggle Kama Dagger", &m_kamadaggarVisible);
 		ImGui::End();
 	}
 }
@@ -336,7 +434,9 @@ void GraphicsApp::QuadTexturedDraw(glm::mat4 pvm)
 	m_textureShader.bindUniform("diffuseTexture", 0);
 
 	//Bind the texture to a specific location
-	m_gridTexture.bind(0);
+	//m_gridTexture.bind(0);
+
+	m_renderTarget.getTarget(0).bind(0);
 
 	// Draw the quad using Mesh's draw
 	m_quadMesh.Draw();
@@ -516,7 +616,7 @@ bool GraphicsApp::LoadPrimitiveShapes()
 		return false;
 
 	// Used for loading in a primitive sphere
-	if (!SphereLoader(4, 2, 1))
+	if (!SphereLoader(9, 6, 1))
 		return false;
 
 	return true;
@@ -524,32 +624,20 @@ bool GraphicsApp::LoadPrimitiveShapes()
 void GraphicsApp::DrawPrimitiveShapes(glm::mat4 pv)
 {
 	if (m_squareVisible)
-		SquareDraw(pv * m_squareTransform);
+		PrimitiveShapeDraw(pv * m_squareTransform, &m_squareMesh);
 
 	if (m_cylinderVisible)
-		CylinderDraw(pv * m_cylinderTransform);
+		PrimitiveShapeDraw(pv * m_cylinderTransform, &m_cylinderMesh);
 
 	if (m_pyramidVisible)
-		PyramidDraw(pv * m_pyramidTransform);
+		PrimitiveShapeDraw(pv * m_pyramidTransform, &m_pyramidMesh);
 
 	if (m_sphereVisible)
-		SphereDraw(pv * m_sphereTransform);
+		PrimitiveShapeDraw(pv * m_sphereTransform, &m_sphereMesh);
 }
 
 bool GraphicsApp::SquareLoader()
 {
-	m_simpleShader.loadShader(aie::eShaderStage::VERTEX,
-		"./shaders/simple.vert");
-	m_simpleShader.loadShader(aie::eShaderStage::FRAGMENT,
-		"./shaders/simple.frag");
-
-	if (m_simpleShader.link() == false)
-	{
-		printf("Simple Shader has an Error: %s\n",
-			m_simpleShader.getLastError());
-		return false;
-	}
-
 	// Defined as 8 vertices for the 12 triangles
 	Mesh::Vertex vertices[8];
 	vertices[0].position = { -0.5f, 0,  0.5f, 1 };
@@ -576,32 +664,9 @@ bool GraphicsApp::SquareLoader()
 
 	return true;
 }
-void GraphicsApp::SquareDraw(glm::mat4 pvm)
-{
-	// Bind the shader
-	m_simpleShader.bind();
-
-	// Bind the transform
-	m_simpleShader.bindUniform("ProjectionViewModel", pvm);
-
-	// Draw the quad using Mesh's draw
-	m_squareMesh.Draw();
-}
 
 bool GraphicsApp::CylinderLoader(float radius, float height, int segments)
 {
-	m_simpleShader.loadShader(aie::eShaderStage::VERTEX,
-		"./shaders/simple.vert");
-	m_simpleShader.loadShader(aie::eShaderStage::FRAGMENT,
-		"./shaders/simple.frag");
-
-	if (m_simpleShader.link() == false)
-	{
-		printf("Simple Shader has an Error: %s\n",
-			m_simpleShader.getLastError());
-		return false;
-	}
-
 	// Defined as 2 vertices for each segment
 	Mesh::Vertex* vertices = new Mesh::Vertex[segments * 2 + 2];
 
@@ -652,32 +717,9 @@ bool GraphicsApp::CylinderLoader(float radius, float height, int segments)
 
 	return true;
 }
-void GraphicsApp::CylinderDraw(glm::mat4 pvm)
-{
-	// Bind the shader
-	m_simpleShader.bind();
-
-	// Bind the transform
-	m_simpleShader.bindUniform("ProjectionViewModel", pvm);
-
-	// Draw the quad using Mesh's draw
-	m_cylinderMesh.Draw();
-}
 
 bool GraphicsApp::PyramidLoader(float width, float height)
 {
-	m_simpleShader.loadShader(aie::eShaderStage::VERTEX,
-		"./shaders/simple.vert");
-	m_simpleShader.loadShader(aie::eShaderStage::FRAGMENT,
-		"./shaders/simple.frag");
-
-	if (m_simpleShader.link() == false)
-	{
-		printf("Simple Shader has an Error: %s\n",
-			m_simpleShader.getLastError());
-		return false;
-	}
-
 	Mesh::Vertex vertices[5];
 	vertices[0].position = { 0, height, 0, 1 };
 	vertices[1].position = { -0.5f * width, 0,  0.5f * width, 1 };
@@ -699,17 +741,6 @@ bool GraphicsApp::PyramidLoader(float width, float height)
 
 	return true;
 }
-void GraphicsApp::PyramidDraw(glm::mat4 pvm)
-{
-	// Bind the shader
-	m_simpleShader.bind();
-
-	// Bind the transform
-	m_simpleShader.bindUniform("ProjectionViewModel", pvm);
-
-	// Draw the quad using Mesh's draw
-	m_pyramidMesh.Draw();
-}
 
 bool GraphicsApp::SphereLoader(float segments, float rings, float radius)
 {
@@ -721,18 +752,6 @@ bool GraphicsApp::SphereLoader(float segments, float rings, float radius)
 	if (rings < 2)
 	{
 		printf("Number of rings of a sphere must be 2 or higher.\n");
-		return false;
-	}
-
-	m_simpleShader.loadShader(aie::eShaderStage::VERTEX,
-		"./shaders/simple.vert");
-	m_simpleShader.loadShader(aie::eShaderStage::FRAGMENT,
-		"./shaders/simple.frag");
-
-	if (m_simpleShader.link() == false)
-	{
-		printf("Simple Shader has an Error: %s\n",
-			m_simpleShader.getLastError());
 		return false;
 	}
 
@@ -753,50 +772,51 @@ bool GraphicsApp::SphereLoader(float segments, float rings, float radius)
 			continue;
 		}
 
-		float phi = ((PI * 2) / rings) * r;
+		float phi = ((PI) / rings) * r;
 		for (int s = 0; s < segments; s++)
 		{
 			float theta = ((PI * 2) / segments) * s;
-			vertices[verticesIndex].position = { radius * sin(phi) * cos(theta), 
-				radius * sin(phi) * sin(theta), radius * cos(phi), 1};
+			vertices[verticesIndex].position = { radius * sin(phi) * cos(theta),
+				radius * cos(phi), radius * sin(phi) * sin(theta), 1};
 			verticesIndex++;
 		}
 	}
 
-	unsigned int indices[24] = { 1,2,0, 2,3,0, 3,4,0, 4,1,0 };
-	//unsigned int* indices = new unsigned int[((segments * 2) + ((rings - 2) * segments * 2)) * 3];
-	/*int indicesIndex = 0;
-	for (int s = 0; s < segments; s++)
+	//unsigned int indices[24] = { 2,1,0, 3,2,0, 4,3,0, 1,4,0 };
+	unsigned int* indices = new unsigned int[((segments * 2) + ((rings - 2) * segments * 2)) * 3];
+	int indicesIndex = 0;
+
+	for (int r = 0; r < rings; r++)
 	{
-		for (int r = 0; r < rings; r++)
+		for (int s = 0; s < segments; s++)
 		{
 			if (r == 0)
 			{
-				indices[indicesIndex] = s + 1;
-				indices[indicesIndex + 1] = s + 2 > segments ? 1 : s + 2;
+				indices[indicesIndex] = s + 2 > segments ? 1 : s + 2;
+				indices[indicesIndex + 1] = s + 1;
 				indices[indicesIndex + 2] = 0;
 				indicesIndex += 3;
 				continue;
 			}
 			if (r == rings - 1)
 			{
-				indices[indicesIndex] = s + 2 > segments ? 1 + ((rings - 2) * segments) : s + 2 + ((rings - 2) * segments);
-				indices[indicesIndex + 1] = s + 1 + ((rings - 2) * segments);
-				indices[indicesIndex + 2] = ((rings - 2) * segments) + 1;
+				indices[indicesIndex] = s + 1 + ((rings - 2) * segments);
+				indices[indicesIndex + 1] = s + 2 > segments ? 1 + ((rings - 2) * segments) : s + 2 + ((rings - 2) * segments);
+				indices[indicesIndex + 2] = (segments * (rings - 1)) + 1;
 				indicesIndex += 3;
 				continue;
 			}
-
-			indices[indicesIndex] = s + 1 + ((r - 1) * segments);
-			indices[indicesIndex + 1] = s + 2 > segments ? 1 : s + 2 + ((r - 1) * segments);
-			indices[indicesIndex + 2] = s + 1 + ((r - 2) * segments);
+			
+			indices[indicesIndex] = s + 2 > segments ? (r * segments) + 1 : s + 2 + (r * segments);
+			indices[indicesIndex + 1] = s + 1 + (r * segments);
+			indices[indicesIndex + 2] = s + 1 + ((r - 1) * segments);
 			indicesIndex += 3;
-			indices[indicesIndex] = s + 2 > segments ? 1 : s + 2 + ((r - 2) * segments);
-			indices[indicesIndex + 1] = s + 1 + ((r - 2) * segments);
-			indices[indicesIndex + 2] = s + 2 > segments ? 1 : s + 2 + ((r - 1) * segments);
+			indices[indicesIndex] = s + 1 + ((r - 1) * segments);
+			indices[indicesIndex + 1] = s + 2 > segments ? ((r - 1) * segments) + 1 : s + 2 + ((r - 1) * segments);
+			indices[indicesIndex + 2] = s + 2 > segments ? (r * segments) + 1 : s + 2 + (r * segments);
 			indicesIndex += 3;
 		}
-	}*/
+	}
 
 	m_sphereMesh.Initailise((segments * (rings - 1)) + 2, vertices, 
 		((segments * 2) + ((rings - 2) * segments * 2)) * 3, indices);
@@ -811,7 +831,8 @@ bool GraphicsApp::SphereLoader(float segments, float rings, float radius)
 
 	return true;
 }
-void GraphicsApp::SphereDraw(glm::mat4 pvm)
+
+void GraphicsApp::PrimitiveShapeDraw(glm::mat4 pvm, Mesh* mesh)
 {
 	// Bind the shader
 	m_simpleShader.bind();
@@ -820,5 +841,5 @@ void GraphicsApp::SphereDraw(glm::mat4 pvm)
 	m_simpleShader.bindUniform("ProjectionViewModel", pvm);
 
 	// Draw the quad using Mesh's draw
-	m_sphereMesh.Draw();
+	mesh->Draw();
 }

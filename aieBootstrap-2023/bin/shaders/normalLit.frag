@@ -60,7 +60,7 @@ void main()
     vec3 texSpecular = texture(specularTexture, vTexCoord).rgb;
     vec3 texNormal = texture(normalTexture, vTexCoord).rgb;
 
-    N = TBN * (texNormal * 2 - 1);
+    N = normalize(TBN * (texNormal * 2 - 1));
 
     // Calculate the negative light direction (Lambert Term)
     float lambertTerm = max(0, min(1, dot(N, -L)));

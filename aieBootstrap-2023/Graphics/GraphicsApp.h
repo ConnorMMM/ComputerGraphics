@@ -11,6 +11,8 @@
 #include "Scene.h"
 #include "Instance.h"
 
+#include "RenderTarget.h"
+
 #include <glm/mat4x4.hpp>
 
 #include <vector>
@@ -63,16 +65,11 @@ protected:
 	void DrawPrimitiveShapes(glm::mat4 pv);
 	
 	bool SquareLoader();
-	void SquareDraw(glm::mat4 pvm);
-
 	bool CylinderLoader(float radius, float height, int segments);
-	void CylinderDraw(glm::mat4 pvm);
-
 	bool PyramidLoader(float width, float height);
-	void PyramidDraw(glm::mat4 pvm);
-	
 	bool SphereLoader(float segments, float rings, float radius);
-	void SphereDraw(glm::mat4 pvm);
+
+	void PrimitiveShapeDraw(glm::mat4 pvm, Mesh* mesh);
 
 	Scene*		m_scene;
 
@@ -90,11 +87,17 @@ protected:
 	aie::ShaderProgram m_textureShader;
 	aie::ShaderProgram m_normalLitShader;
 
+	aie::RenderTarget m_renderTarget;
+
 	Mesh			   m_quadMesh;
 	glm::mat4		   m_quadTransform;
 
 	aie::OBJMesh	   m_bunnyMesh;
 	glm::mat4		   m_bunnyTransform;
+	float m_bunnyScale = 1;
+	float m_prevBunnyScale = 1;
+	glm::vec3 m_curBunnyRotation = glm::vec3(0);
+	glm::vec3 m_prevBunnyRotation = glm::vec3(0);
 
 	aie::OBJMesh	   m_spearMesh;
 	glm::mat4		   m_spearTransform;
@@ -126,13 +129,15 @@ protected:
 
 	bool m_planetsVisible = false;
 	bool m_quadVisible = false;
-	bool m_bunnyVisible = false;
-	bool m_spearVisible = false;
-	bool m_kamadaggarVisible = true;
 
-
+	bool m_primitiveShapesVisible = false;
 	bool m_squareVisible = false;
 	bool m_cylinderVisible = false;
 	bool m_pyramidVisible = false;
 	bool m_sphereVisible = false;
+	
+	bool m_modelsVisible = false;
+	bool m_bunnyVisible = false;
+	bool m_spearVisible = false;
+	bool m_kamadaggarVisible = true;
 };
