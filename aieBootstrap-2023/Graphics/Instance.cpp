@@ -21,6 +21,9 @@ Instance::Instance(glm::vec3 position, glm::vec3 eulerAngles, glm::vec3 scale,
 
 void Instance::Draw(Scene* scene)
 {
+	if (!m_visible)
+		return;
+
 	// Set the shader pipeline
 	m_shader->bind();
 

@@ -13,6 +13,7 @@
 #include "Instance.h"
 
 #include "RenderTarget.h"
+#include "ParticleEmitter.h"
 
 #include <glm/mat4x4.hpp>
 
@@ -61,7 +62,7 @@ protected:
 	// for textured OBJs
 	void ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMesh, aie::ShaderProgram* shader);
 	
-	int m_postProcessTarget = 1;
+	int m_postProcessTarget = 8;
 
 
 	bool LoadPrimitiveShapes();
@@ -90,6 +91,7 @@ protected:
 	aie::ShaderProgram m_textureShader;
 	aie::ShaderProgram m_normalLitShader;
 	aie::ShaderProgram m_postProcessShader;
+	aie::ShaderProgram m_particleShader;
 
 	aie::RenderTarget  m_renderTarget;
 
@@ -136,6 +138,9 @@ protected:
 
 	Light m_light;
 	glm::vec3 m_ambientLight;
+
+	ParticleEmitter* m_emitter;
+	glm::mat4 m_particleEmitTransform;
 
 	bool m_planetsVisible = false;
 	bool m_quadVisible = false;

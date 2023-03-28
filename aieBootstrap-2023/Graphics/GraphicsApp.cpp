@@ -36,21 +36,21 @@ bool GraphicsApp::startup()
 		getWindowHeight(), 0.1, 1000);
 
 	m_frontCamera = new StationaryCamera();
+	m_frontCamera->SetPosition(vec3(-10, 0, 0));
 	m_frontCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
-	m_frontCamera->SetPosition(vec3(10, 0, 0));
 
 	m_rightCamera = new StationaryCamera();
-	m_rightCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
-		getWindowHeight(), 0.1, 1000);
 	m_rightCamera->SetPosition(vec3(0, 0, 10));
 	//m_topCamera->SetRotation(vec3(0, 1, 0));
+	m_rightCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
+		getWindowHeight(), 0.1, 1000);
 
 	m_topCamera = new StationaryCamera();
-	m_topCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
-		getWindowHeight(), 0.1, 1000);
 	m_topCamera->SetPosition(vec3(0, 10, 0));
 	//m_topCamera->SetRotation(vec3(1, 0, 0));
+	m_topCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
+		getWindowHeight(), 0.1, 1000);
 
 	m_curCamera = m_flyCamera;
 	m_viewMatrix = m_curCamera->GetViewMatrix();
@@ -63,6 +63,10 @@ bool GraphicsApp::startup()
 	Light light;
 	light.color = { 1,1,1 };
 	light.direction = { 1, -1, 1 };
+
+	m_emitter = new ParticleEmitter();
+	m_emitter->Initialise(1000, 500, .1f, 1.0f, 1, 5, 1, .1f,
+		glm::vec4(0, 0, 1, 1), glm::vec4(0, 1, 0, 1));
 
 	m_scene = new Scene(m_curCamera, glm::vec2(getWindowWidth(),
 		getWindowHeight()), light, m_ambientLight);
@@ -79,12 +83,9 @@ void GraphicsApp::shutdown()
 	delete m_scene;
 }
 
-void GraphicsApp::update(float deltaTime) {
-
-	if (m_scene->GetCamera() == m_curCamera)
-	{
-		m_scene->SetCamera(m_curCamera);
-	}
+void GraphicsApp::update(float deltaTime) 
+{
+	m_scene->SetCamera(m_curCamera);
 	
 	// wipe the gizmos clean for this frame
 	Gizmos::clear();
@@ -115,15 +116,18 @@ void GraphicsApp::update(float deltaTime) {
 	m_light.direction = 
 		glm::normalize(glm::vec3(glm::cos(time * 2), glm::sin(time * 2), 0));
 	
-	if (m_curCamera == (BaseCamera*)m_flyCamera)
-	{
-		m_flyCamera->Update(deltaTime);
-	}
+	m_emitter->Update(deltaTime, m_curCamera->GetWorldTransform());
+
+	if (FlyCamera* flyCamera = dynamic_cast<FlyCamera*>(m_curCamera))
+		flyCamera->Update(deltaTime);
+	else
+		m_curCamera->Update(deltaTime);
 
 	// quit if we press escape
 	aie::Input* input = aie::Input::getInstance();
 	if (input->isKeyDown(aie::INPUT_KEY_ESCAPE))
 		quit();
+
 
 	ImGUIRefresher();
 }
@@ -163,10 +167,11 @@ void GraphicsApp::draw() {
 		// Draw the bunny setup in BunnyLoader()
 		if (m_bunnyVisible)
 			ObjDraw(pv, m_bunnyTransform, &m_bunnyMesh, &m_phongShader);
-
-		if (m_kamadaggarVisible)
-			ObjDraw(pv, m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader);
 	}
+
+	m_particleShader.bind();
+	m_particleShader.bindUniform("ProjectionViewModel", pv * m_particleEmitTransform);
+	m_emitter->Draw();
 
 	Gizmos::draw(m_projectionMatrix * m_viewMatrix);
 
@@ -183,6 +188,8 @@ void GraphicsApp::draw() {
 	m_postProcessShader.bind();
 	m_postProcessShader.bindUniform("colorTarget", 0);
 	m_postProcessShader.bindUniform("postProcessTarget", m_postProcessTarget);
+	m_postProcessShader.bindUniform("windowWidth", (int)getWindowWidth());
+	m_postProcessShader.bindUniform("windowHeight", (int)getWindowHeight());
 	m_renderTarget.getTarget(0).bind(0);
 
 	m_fullScreenQuad.Draw();
@@ -263,7 +270,23 @@ bool GraphicsApp::LaunchShaders()
 		printf("Post Process Shader Error: %s\n", m_postProcessShader.getLastError());
 		return false;
 	}
+
+	// Particle Shader
+	m_particleShader.loadShader(aie::eShaderStage::VERTEX, "./shaders/particle.vert");
+	m_particleShader.loadShader(aie::eShaderStage::FRAGMENT, "./shaders/particle.frag");
+	if (m_particleShader.link() == false)
+	{
+		printf("Particle Shader Error: %s\n", m_particleShader.getLastError());
+		return false;
+	}
 #pragma endregion
+
+	m_particleEmitTransform = {
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1
+	};
 
 	// Used for loading in a simple quad
 	if (!QuadTextureLoader())
@@ -294,13 +317,8 @@ bool GraphicsApp::LaunchShaders()
 		return false;
 #pragma endregion
 	
-	for (int i = 0; i < 10; i++)
-	{
-		m_scene->AddInstance(new Instance(glm::vec3(i * 2, 0, 0), glm::vec3(0, i * 30, 0), 
-			glm::vec3(1, 1, 1), &m_spearMesh, &m_normalLitShader));
-	}
+	m_scene->AddInstance(new Instance(m_spearTransform, &m_spearMesh, &m_normalLitShader));
 	m_scene->AddInstance(new Instance(m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader));
-
 
 	return true;
 }
@@ -319,6 +337,29 @@ void GraphicsApp::ImGUIRefresher()
 	ImGui::Checkbox("Toggle Primitive Shapes", &m_primitiveShapesVisible);
 	ImGui::Checkbox("Toggle Models", &m_modelsVisible);
 	ImGui::Checkbox("Toggle Quad", &m_quadVisible);
+	ImGui::End();
+
+	ImGui::Begin("Camera Settings");
+	if (ImGui::CollapsingHeader("Cameras"))
+	{
+		if (ImGui::Button("Fly Camera", { 20, 30 }))
+		{
+			m_curCamera = m_flyCamera;
+		}
+		if (ImGui::Button("Front Stationary Camera", { 20, 30 }))
+		{
+			m_curCamera = m_frontCamera;
+		}
+		if (ImGui::Button("Right Stationary Camera", { 20, 30 }))
+		{
+			m_curCamera = m_rightCamera;
+		}
+		if (ImGui::Button("Top Stationary Camera", { 20, 30 }))
+		{
+			m_curCamera = m_topCamera;
+		}
+	}
+	ImGui::DragInt("Post Process Effect", &m_postProcessTarget, 1, -1, 10);
 	ImGui::End();
 
 	if (m_planetsVisible)
@@ -383,9 +424,7 @@ void GraphicsApp::ImGUIRefresher()
 			ImGui::DragFloat3("Bunny: Position", &m_bunnyTransform[3][0], .01);
 			if (ImGui::DragFloat("Bunny: Scale", &m_bunnyScale, .01, .01, 100))
 			{
-				m_bunnyScale <= 0 ? m_bunnyScale = 0.01 : m_bunnyScale;
-				float scale = 1 - (m_prevBunnyScale - m_bunnyScale);
-				m_bunnyTransform = glm::scale(m_bunnyTransform, vec3(scale));
+				m_bunnyTransform = glm::scale(m_bunnyTransform, vec3(m_bunnyScale / m_prevBunnyScale));
 				m_prevBunnyScale = m_bunnyScale;
 			}
 			if (ImGui::DragFloat3("Bunny: Rotation", &m_curBunnyRotation[0], .01, 0, PI * 2))
@@ -397,8 +436,38 @@ void GraphicsApp::ImGUIRefresher()
 				m_prevBunnyRotation = m_curBunnyRotation;
 			}
 		}
-		ImGui::Checkbox("Toggle Spear", &m_spearVisible);
-		ImGui::Checkbox("Toggle Kama Dagger", &m_kamadaggarVisible);
+		std::list<Instance*> instances = m_scene->GetInstances();
+		int i = 1;
+		for each (Instance* instance in instances)
+		{
+			std::string name = "Object " + std::to_string(i);
+			if (ImGui::CollapsingHeader(name.c_str()))
+			{
+				std::string label = "Toggle " + name;
+				ImGui::Checkbox(label.c_str(), instance->Visible());
+				label = name + ": Position";
+				ImGui::DragFloat3(label.c_str(), instance->Position(), .01);
+				label = name + ": Scale";
+				if (ImGui::DragFloat(label.c_str(), instance->CurScale(), .01, .01, 100))
+				{
+					float scale = instance->GetCurScale() / instance->GetPrevScale();
+					instance->SetTransform(glm::scale(instance->GetTransform(), vec3(scale)));
+					instance->UpdateScale();
+				}
+				label = name + ": Rotation";
+				if (ImGui::DragFloat3(label.c_str(), instance->CurRotation(), .01))
+				{
+					vec3 angle = instance->GetPrevRotation() - instance->GetCurRotation();
+					glm::mat4 transform = instance->GetTransform();
+					transform = glm::rotate(transform, angle[0], vec3(1, 0, 0));
+					transform = glm::rotate(transform, angle[1], vec3(0, 1, 0));
+					transform = glm::rotate(transform, angle[2], vec3(0, 0, 1));
+					instance->SetTransform(transform);
+					instance->UpdateScale();
+				}
+			}
+			i++;
+		}
 		ImGui::End();
 	}
 }

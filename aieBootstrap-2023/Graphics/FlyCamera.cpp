@@ -66,5 +66,5 @@ void FlyCamera::Update(float deltaTime)
 
 	m_lastMouse = glm::vec2(mx, my);
 
-	m_viewTransform = glm::lookAt(m_position, m_position + forward, glm::vec3(0, 1, 0));
+	BaseCamera::Update(deltaTime);
 }

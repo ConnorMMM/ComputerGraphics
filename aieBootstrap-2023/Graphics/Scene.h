@@ -46,7 +46,9 @@ public:
 	int GetNumberOfLights() { return m_pointLights.size(); }
 	glm::vec3* GetPointLightPositions() { return &m_pointLightPositions[0]; }
 	glm::vec3* GetPointLightColors() { return &m_pointLightColors[0]; }
+	std::list<Instance*> GetInstances() { return m_instances; }
 
+	// Setters
 	void SetCamera(BaseCamera* camera) { m_camera = camera; }
 
 protected:
