@@ -1,4 +1,6 @@
 #include "ParticleEmitter.h"
+#include "Gizmos.h"
+#include <glm/glm.hpp>
 
 ParticleEmitter::ParticleEmitter() :
 	m_particles(nullptr), m_firstDead(0), m_maxParticles(0), 
@@ -229,4 +231,19 @@ void ParticleEmitter::Draw()
 	glBufferSubData(GL_ARRAY_BUFFER, 0, m_firstDead * 4 * sizeof(ParticleVertex), m_vertexData);
 	glBindVertexArray(m_vao);
 	glDrawElements(GL_TRIANGLES, m_firstDead * 6, GL_UNSIGNED_INT, 0);
+
+	aie::Gizmos::addCylinderFilled(m_position, 0.2f, .5, 8, m_startColor);
+}
+
+void ParticleEmitter::SetColor(glm::vec4 color)
+{
+	float scale = glm::max(color[0], glm::max(color[1], color[2]));
+	glm::vec4 tempColor;
+	if (scale <= 1)
+		tempColor = color;
+	else
+		tempColor = glm::vec4(color[0] / scale, color[1] / scale, color[2] / scale, 1);
+
+	m_startColor = tempColor;
+	m_endColor = tempColor;
 }

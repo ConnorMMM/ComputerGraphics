@@ -62,11 +62,8 @@ protected:
 	// for textured OBJs
 	void ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMesh, aie::ShaderProgram* shader);
 	
-	int m_postProcessTarget = 8;
+	int m_postProcessTarget = 9;
 
-
-	bool LoadPrimitiveShapes();
-	void DrawPrimitiveShapes(glm::mat4 pv);
 	
 	bool SquareLoader();
 	bool CylinderLoader(float radius, float height, int segments);
@@ -144,6 +141,7 @@ protected:
 
 	bool m_planetsVisible = false;
 	bool m_quadVisible = false;
+	bool m_particleVisible = false;
 
 	bool m_primitiveShapesVisible = false;
 	bool m_squareVisible = false;

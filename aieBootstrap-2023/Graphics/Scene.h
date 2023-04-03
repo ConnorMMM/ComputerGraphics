@@ -48,8 +48,14 @@ public:
 	glm::vec3* GetPointLightColors() { return &m_pointLightColors[0]; }
 	std::list<Instance*> GetInstances() { return m_instances; }
 
+	glm::vec3 GetPointLightPos(int index) { return m_pointLights.at(index).direction; }
+	glm::vec3 GetPointLightColor(int index) { return m_pointLights.at(index).color; }
+
 	// Setters
 	void SetCamera(BaseCamera* camera) { m_camera = camera; }
+	void SetPointLightPos(int index, glm::vec3 position) { m_pointLights.at(index).direction = position; }
+	void SetPointLightColor(int index, glm::vec3 color) { m_pointLights.at(index).color = color; }
+
 
 protected:
 	BaseCamera* m_camera;

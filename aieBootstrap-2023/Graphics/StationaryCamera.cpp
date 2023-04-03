@@ -6,6 +6,6 @@ StationaryCamera::StationaryCamera() : BaseCamera()
 
 void StationaryCamera::SetRotation(glm::vec3 rotation)
 {
-	m_phi = (float)rotation.x * 90;
-	m_theta = (float)rotation.y * 90;
+	m_phi = glm::degrees(rotation.y);
+	m_theta = glm::degrees(rotation.x);
 }

@@ -7,6 +7,7 @@ uniform sampler2D colorTarget;
 uniform int postProcessTarget;
 uniform int windowWidth;
 uniform int windowHeight;
+uniform float time;
 
 out vec4 FragColor;
 
@@ -90,7 +91,7 @@ vec4 Scanlines(vec2 texCoord)
 
     float scanlineIntensity = 0.125f;
     float scanlineCount = 800;
-    float scanlineYDelta = sin(200);
+    float scanlineYDelta = sin(time * -0.03f);
 
     float scanline = sin((texCoord.y - scanlineYDelta) * scanlineCount) * scanlineIntensity;
 
@@ -135,15 +136,34 @@ vec4 Pixelizer(vec2 texCoord)
 
 vec4 Posterization(vec2 texCoord)
 {
-    vec4 color = texture(colorTarget, texCoord);
-	
-	
-	return color;
+    vec4 color4 = texture(colorTarget, texCoord);
+
+    float gamma = 0.3f;
+    float numColors = 7.0f;
+  
+    vec3 c = color4.xyz;
+    c = pow(c, vec3(gamma, gamma, gamma));
+    c = c * numColors;
+    c = floor(c);
+    c = c / numColors;
+    c = pow(c, vec3(1.0/gamma));
+  
+    return vec4(c, color4.a);
 }
 
 vec4 DistanceFog(vec2 texCoord)
 {
     return texture(colorTarget, texCoord);
+
+    // Time varying pixel depth
+    vec3 depth = 0.5 + 0.2 * cos(time + texCoord.xyx * 5.0 + vec3(0, 2, 4));
+    
+    //Create 2D fog effect
+    vec3 col = vec3(depth.r, depth.r, depth.r) * vec3(depth.g, depth.g, depth.g) + vec3(depth.b, depth.b, depth.b);
+
+    // Output to screen
+    return texture(colorTarget, texCoord) + vec4(col, 1.0);
+
 }
 
 vec4 DepthOfField(vec2 texCoord)
@@ -153,7 +173,21 @@ vec4 DepthOfField(vec2 texCoord)
 
 vec4 NightVision(vec2 texCoord)
 {
-    return texture(colorTarget, texCoord);
+    vec4 color = texture(colorTarget, texCoord);
+
+    float gridlineIntensity = 0.75f;
+    float gridlineXCount = windowWidth / 3;
+    float gridlineYCount = windowHeight / 3;
+    float gridlineXDelta = sin(time * 0.001f);
+    float gridlineYDelta = sin(time * -0.001f);
+
+    float gridlineX = max(0, sin((texCoord.x - gridlineXDelta) * gridlineXCount) - 0.9f) * gridlineIntensity;
+    float gridlineY = max(0, sin((texCoord.y - gridlineYDelta) * gridlineYCount) - 0.9f) * gridlineIntensity;
+
+    color -= max(gridlineY, gridlineX);
+    return color;
+
+
 }
 
 void main()

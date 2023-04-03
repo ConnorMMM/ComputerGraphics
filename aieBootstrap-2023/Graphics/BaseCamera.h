@@ -7,6 +7,7 @@
 
 using glm::vec2;
 using glm::vec3;
+using glm::vec4;
 using glm::mat4;
 
 class BaseCamera {
@@ -40,6 +41,8 @@ public:
 	void SetProjectionMatrix(float fieldOfView, float aspectRatio, float near, float far);
 	void SetProjectionMatrix(float fieldOfView, float width, float height, float near, float far) 
 		{ SetProjectionMatrix(fieldOfView, width / height, near, far); }
+	void SetColor(vec4 color) 
+		{ m_color = color; }
 
 protected:
 	mat4 m_projectionViewTransform;
@@ -55,5 +58,6 @@ protected:
 
 	vec2 m_lastMouse;
 
+	vec4 m_color;
 };
 

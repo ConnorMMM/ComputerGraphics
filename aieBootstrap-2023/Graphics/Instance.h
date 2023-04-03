@@ -12,9 +12,9 @@ namespace aie {
 class Instance {
 public:
 	Instance(glm::mat4 transform, aie::OBJMesh* mesh, 
-		aie::ShaderProgram* shader);
+		aie::ShaderProgram* shader, bool hasTexture);
 	Instance(glm::vec3 position, glm::vec3 eulerAngles, glm::vec3 scale, 
-		aie::OBJMesh* mesh, aie::ShaderProgram* shader);
+		aie::OBJMesh* mesh, aie::ShaderProgram* shader, bool hasTexture);
 	~Instance() {};
 
 	void Draw(Scene* scene);
@@ -48,6 +48,7 @@ protected:
 	aie::ShaderProgram* m_shader;
 
 	bool m_visible = true;
+	bool m_hasTexture;
 
 	float m_curScale = 1;
 	float m_prevScale = 1;

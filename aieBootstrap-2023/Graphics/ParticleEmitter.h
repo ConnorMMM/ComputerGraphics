@@ -38,6 +38,10 @@ public:
 	void Update(float _dt, const glm::mat4& _cameraTransform);
 	void Draw();
 
+	// Setters
+	void SetPosition(glm::vec3 position) { m_position = position; }
+	void SetColor(glm::vec4 color);
+
 protected:
 	Particle* m_particles;
 	unsigned int m_firstDead;

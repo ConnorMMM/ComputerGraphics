@@ -9,6 +9,8 @@ in vec3 vBiTangent;
 
 out vec4 FragColor;
 
+uniform bool hasTexture;
+
 // Camera Data
 uniform vec3 CameraPosition;
 
@@ -60,6 +62,8 @@ void main()
     vec3 texSpecular = texture(specularTexture, vTexCoord).rgb;
     vec3 texNormal = texture(normalTexture, vTexCoord).rgb;
 
+    
+
     N = normalize(TBN * (texNormal * 2 - 1));
 
     // Calculate the negative light direction (Lambert Term)
@@ -93,6 +97,20 @@ void main()
     vec3 ambient = AmbientColor * Ka * texDiffuse;
     vec3 diffuse = diffuseTotal * Kd * texDiffuse;
     vec3 specular = specularTotal * Ks * texSpecular;
+
+    if(!hasTexture)
+    {
+        // Calculate the negative light direction (Lambert Term)
+        float lambertTerm = max(0, min(1, dot(N, -L)));
+
+        // Calculate the specular term
+        float specularTerm = pow(max(0, dot(R, V)), specularPower);
+
+        // Calculate the properties of each color type
+        ambient = AmbientColor * Ka;
+        diffuse = diffuseTotal * Kd * lambertTerm;
+        specular = specularTotal * Ks * specularTerm;
+    }
 
     //FragColor = vec4(N, 1);
     FragColor = vec4(ambient + diffuse + specular, 1);

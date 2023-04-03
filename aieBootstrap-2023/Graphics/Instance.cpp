@@ -6,15 +6,17 @@
 #include "BaseCamera.h"
 #include "GraphicsApp.h"
 
-Instance::Instance(glm::mat4 transform, aie::OBJMesh* mesh, aie::ShaderProgram* shader)
+Instance::Instance(glm::mat4 transform, aie::OBJMesh* mesh, aie::ShaderProgram* shader, bool hasTexture)
 {
 	m_transform = transform;
 	m_mesh = mesh;
 	m_shader = shader;
+	m_hasTexture = hasTexture;
 }
 
 Instance::Instance(glm::vec3 position, glm::vec3 eulerAngles, glm::vec3 scale, 
-	aie::OBJMesh* mesh, aie::ShaderProgram* shader) : m_mesh(mesh), m_shader(shader)
+	aie::OBJMesh* mesh, aie::ShaderProgram* shader, bool hasTexture) : 
+	m_mesh(mesh), m_shader(shader), m_hasTexture(hasTexture)
 {
 	m_transform = MakeTransform(position, eulerAngles, scale);
 }
@@ -32,6 +34,8 @@ void Instance::Draw(Scene* scene)
 		scene->GetCamera()->GetViewMatrix() * m_transform;
 	m_shader->bindUniform("ProjectionViewModel", pvm);
 	m_shader->bindUniform("ModelMatrix", m_transform);
+
+	m_shader->bindUniform("hasTexture", m_hasTexture);
 
 	// Bind the camera position
 	m_shader->bindUniform("CameraPosition", scene->GetCamera()->GetPosition());

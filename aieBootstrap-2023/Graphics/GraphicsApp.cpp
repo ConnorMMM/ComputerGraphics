@@ -34,23 +34,27 @@ bool GraphicsApp::startup()
 	m_flyCamera = new FlyCamera();
 	m_flyCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
+	m_flyCamera->SetColor(vec4(1, 1, 0, 1));
 
 	m_frontCamera = new StationaryCamera();
 	m_frontCamera->SetPosition(vec3(-10, 0, 0));
 	m_frontCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
+	m_frontCamera->SetColor(vec4(1, 0, 0, 1));
 
 	m_rightCamera = new StationaryCamera();
 	m_rightCamera->SetPosition(vec3(0, 0, 10));
-	//m_topCamera->SetRotation(vec3(0, 1, 0));
+	m_rightCamera->SetRotation(vec3(PI * 1.5f, 0, 0));
 	m_rightCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
+	m_rightCamera->SetColor(vec4(0, 0, 1, 1));
 
 	m_topCamera = new StationaryCamera();
 	m_topCamera->SetPosition(vec3(0, 10, 0));
-	//m_topCamera->SetRotation(vec3(1, 0, 0));
+	m_topCamera->SetRotation(vec3(0, PI * 1.5f, 0));
 	m_topCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
+	m_topCamera->SetColor(vec4(0, 1, 0, 1));
 
 	m_curCamera = m_flyCamera;
 	m_viewMatrix = m_curCamera->GetViewMatrix();
@@ -71,6 +75,7 @@ bool GraphicsApp::startup()
 	m_scene = new Scene(m_curCamera, glm::vec2(getWindowWidth(),
 		getWindowHeight()), light, m_ambientLight);
 
+	m_scene->AddPointLight(vec3(0), vec3(0, 1, 0), 50);
 	m_scene->AddPointLight(vec3(5, 3, 0), vec3(1,0,0), 50);
 	m_scene->AddPointLight(vec3(-5, 3, 0), vec3(0,0,1), 50);
 
@@ -112,11 +117,23 @@ void GraphicsApp::update(float deltaTime)
 	//Grab the time since the application has started
 	float time = getTime();
 
+#pragma region Lights
 	//Rotate time light to emulate a 'day/night' cycle
 	m_light.direction = 
 		glm::normalize(glm::vec3(glm::cos(time * 2), glm::sin(time * 2), 0));
+
+	float scale = 2 / (3 - cos(2 * time));
+	float lightX = scale * cos(time) * 2;
+	float lightZ = scale * sin(2 * time) / 2 * 2;
+	m_scene->SetPointLightPos(0, glm::vec3(lightX, 0, lightZ));
+
+#pragma endregion
 	
+#pragma region ParticleEmitter
+	m_emitter->SetPosition(m_scene->GetPointLightPos(0));
+	m_emitter->SetColor(glm::vec4(m_scene->GetPointLightColor(0), 1));
 	m_emitter->Update(deltaTime, m_curCamera->GetWorldTransform());
+#pragma endregion
 
 	if (FlyCamera* flyCamera = dynamic_cast<FlyCamera*>(m_curCamera))
 		flyCamera->Update(deltaTime);
@@ -150,28 +167,47 @@ void GraphicsApp::draw() {
 	m_topCamera->Draw();
 #pragma endregion
 
-
-	// Solar system
+#pragma region DrawSolarSystem
 	if (m_planetsVisible)
 		m_sun->Draw();
+#pragma endregion
 
 	auto pv = m_projectionMatrix * m_viewMatrix;
 	
-	if(m_primitiveShapesVisible)
-		DrawPrimitiveShapes(pv);
+#pragma region DrawPrimitiveShapes
+	if (m_primitiveShapesVisible)
+	{
+		if (m_squareVisible)
+			PrimitiveShapeDraw(pv * m_squareTransform, &m_squareMesh);
 
+		if (m_cylinderVisible)
+			PrimitiveShapeDraw(pv * m_cylinderTransform, &m_cylinderMesh);
+
+		if (m_pyramidVisible)
+			PrimitiveShapeDraw(pv * m_pyramidTransform, &m_pyramidMesh);
+
+		if (m_sphereVisible)
+			PrimitiveShapeDraw(pv * m_sphereTransform, &m_sphereMesh);
+	}
+#pragma endregion
+
+#pragma region DrawModels
 	if (m_modelsVisible)
 	{
 		m_scene->Draw();
 
 		// Draw the bunny setup in BunnyLoader()
-		if (m_bunnyVisible)
-			ObjDraw(pv, m_bunnyTransform, &m_bunnyMesh, &m_phongShader);
+		//if (m_bunnyVisible)
+		//	ObjDraw(pv, m_bunnyTransform, &m_bunnyMesh, &m_phongShader);
 	}
+#pragma endregion
 
 	m_particleShader.bind();
 	m_particleShader.bindUniform("ProjectionViewModel", pv * m_particleEmitTransform);
-	m_emitter->Draw();
+	if (m_particleVisible)
+	{
+		m_emitter->Draw();
+	}
 
 	Gizmos::draw(m_projectionMatrix * m_viewMatrix);
 
@@ -180,20 +216,16 @@ void GraphicsApp::draw() {
 
 	clearScreen();
 
-	// Draw the quad setup in QuadLoader()
-	//if (m_quadVisible)
-		//QuadTexturedDraw(pv * m_quadTransform);
-
 	// Bind the post process shader and the texture
 	m_postProcessShader.bind();
 	m_postProcessShader.bindUniform("colorTarget", 0);
 	m_postProcessShader.bindUniform("postProcessTarget", m_postProcessTarget);
 	m_postProcessShader.bindUniform("windowWidth", (int)getWindowWidth());
 	m_postProcessShader.bindUniform("windowHeight", (int)getWindowHeight());
+	m_postProcessShader.bindUniform("time", getTime());
 	m_renderTarget.getTarget(0).bind(0);
 
 	m_fullScreenQuad.Draw();
-
 }
 
 void GraphicsApp::InitialisePlanets()
@@ -297,7 +329,10 @@ bool GraphicsApp::LaunchShaders()
 	
 #pragma region LoadingOBJMeshes
 	// Used for loading in a OBJ bunny
-	if (!BunnyLoader())
+	//if (!BunnyLoader())
+	//	return false;
+	if (!ObjLoader(m_bunnyMesh, m_bunnyTransform, .1,
+		"./stanford/Bunny.obj", "Bunny", true))
 		return false;
 
 	// Used for loading in a OBJ spear
@@ -312,13 +347,32 @@ bool GraphicsApp::LaunchShaders()
 #pragma endregion
 
 #pragma region LoadingPrimitiveMeshes
-	// Used to call all the loading for the primitive shapes
-	if (!LoadPrimitiveShapes())
+	// Used for loading in a primitive square
+	if (!SquareLoader())
+		return false;
+
+	// Used for loading in a primitive cylinder
+	if (!CylinderLoader(1, 2, 6))
+		return false;
+
+	// Used for loading in a primitive pyramid
+	if (!PyramidLoader(1, 2))
+		return false;
+
+	// Used for loading in a primitive sphere
+	if (!SphereLoader(9, 6, 1))
 		return false;
 #pragma endregion
 	
-	m_scene->AddInstance(new Instance(m_spearTransform, &m_spearMesh, &m_normalLitShader));
-	m_scene->AddInstance(new Instance(m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader));
+#pragma region InstanceOBJs
+	// Spear Model
+	m_scene->AddInstance(new Instance(m_spearTransform, &m_spearMesh, &m_normalLitShader, true));
+	// Kama Dagger Model
+	m_scene->AddInstance(new Instance(m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader, true));
+	// Bunny Model
+	m_scene->AddInstance(new Instance(m_bunnyTransform, &m_bunnyMesh, &m_normalLitShader, false));
+
+#pragma endregion
 
 	return true;
 }
@@ -326,10 +380,26 @@ bool GraphicsApp::LaunchShaders()
 void GraphicsApp::ImGUIRefresher()
 {
 	ImGui::Begin("Light Settings");
-	ImGui::DragFloat3("Global Light Direction",
-		&m_light.direction[0], 0.1, -1, 1);
-	ImGui::DragFloat3("Global Light Color", 
-		&m_light.color[0], 0.1, 0, 1);
+	int numOfLights = m_scene->GetNumberOfLights();
+	for (int i = 0; i < numOfLights; i++)
+	{
+		std::string name = "Light " + std::to_string(i + 1);
+		if (ImGui::CollapsingHeader(name.c_str()))
+		{
+			vec3 lightPos = m_scene->GetPointLightPos(i);
+			std::string label = name + ": Position";
+			if (ImGui::DragFloat3(label.c_str(), &lightPos[0], 0.1f))
+			{
+				m_scene->SetPointLightPos(i, lightPos);
+			}
+			vec3 lightColor = m_scene->GetPointLightColor(i);
+			label = name + ": Color";
+			if (ImGui::DragFloat3(label.c_str(), &lightColor[0], 0.1f))
+			{
+				m_scene->SetPointLightColor(i, lightColor);
+			}
+		}
+	}
 	ImGui::End();
 
 	ImGui::Begin("Toggle Settings");
@@ -337,29 +407,30 @@ void GraphicsApp::ImGUIRefresher()
 	ImGui::Checkbox("Toggle Primitive Shapes", &m_primitiveShapesVisible);
 	ImGui::Checkbox("Toggle Models", &m_modelsVisible);
 	ImGui::Checkbox("Toggle Quad", &m_quadVisible);
+	ImGui::Checkbox("Toggle Particle System", &m_particleVisible);
 	ImGui::End();
 
 	ImGui::Begin("Camera Settings");
 	if (ImGui::CollapsingHeader("Cameras"))
 	{
-		if (ImGui::Button("Fly Camera", { 20, 30 }))
+		if (ImGui::Button("Fly Camera", { 180, 30 }))
 		{
 			m_curCamera = m_flyCamera;
 		}
-		if (ImGui::Button("Front Stationary Camera", { 20, 30 }))
+		if (ImGui::Button("Front Stationary Camera", { 180, 30 }))
 		{
 			m_curCamera = m_frontCamera;
 		}
-		if (ImGui::Button("Right Stationary Camera", { 20, 30 }))
+		if (ImGui::Button("Right Stationary Camera", { 180, 30 }))
 		{
 			m_curCamera = m_rightCamera;
 		}
-		if (ImGui::Button("Top Stationary Camera", { 20, 30 }))
+		if (ImGui::Button("Top Stationary Camera", { 180, 30 }))
 		{
 			m_curCamera = m_topCamera;
 		}
 	}
-	ImGui::DragInt("Post Process Effect", &m_postProcessTarget, 1, -1, 10);
+	ImGui::SliderInt("Post Process Effect", &m_postProcessTarget, -1, 11);
 	ImGui::End();
 
 	if (m_planetsVisible)
@@ -418,24 +489,6 @@ void GraphicsApp::ImGUIRefresher()
 	if (m_modelsVisible)
 	{
 		ImGui::Begin("Models Settings");
-		if (ImGui::CollapsingHeader("Bunny Settings"))
-		{
-			ImGui::Checkbox("Toggle Bunny", &m_bunnyVisible);
-			ImGui::DragFloat3("Bunny: Position", &m_bunnyTransform[3][0], .01);
-			if (ImGui::DragFloat("Bunny: Scale", &m_bunnyScale, .01, .01, 100))
-			{
-				m_bunnyTransform = glm::scale(m_bunnyTransform, vec3(m_bunnyScale / m_prevBunnyScale));
-				m_prevBunnyScale = m_bunnyScale;
-			}
-			if (ImGui::DragFloat3("Bunny: Rotation", &m_curBunnyRotation[0], .01, 0, PI * 2))
-			{
-				vec3 angle = m_prevBunnyRotation - m_curBunnyRotation;
-				m_bunnyTransform = glm::rotate(m_bunnyTransform, angle[0], vec3(1, 0, 0));
-				m_bunnyTransform = glm::rotate(m_bunnyTransform, angle[1], vec3(0, 1, 0));
-				m_bunnyTransform = glm::rotate(m_bunnyTransform, angle[2], vec3(0, 0, 1));
-				m_prevBunnyRotation = m_curBunnyRotation;
-			}
-		}
 		std::list<Instance*> instances = m_scene->GetInstances();
 		int i = 1;
 		for each (Instance* instance in instances)
@@ -727,42 +780,6 @@ void GraphicsApp::ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMe
 
 	// Draw the spear using the Mesh's draw
 	objMesh->draw();
-}
-
-
-bool GraphicsApp::LoadPrimitiveShapes()
-{
-	// Used for loading in a primitive square
-	if (!SquareLoader())
-		return false;
-
-	// Used for loading in a primitive cylinder
-	if (!CylinderLoader(1, 2, 6))
-		return false;
-
-	// Used for loading in a primitive pyramid
-	if (!PyramidLoader(1, 2))
-		return false;
-
-	// Used for loading in a primitive sphere
-	if (!SphereLoader(9, 6, 1))
-		return false;
-
-	return true;
-}
-void GraphicsApp::DrawPrimitiveShapes(glm::mat4 pv)
-{
-	if (m_squareVisible)
-		PrimitiveShapeDraw(pv * m_squareTransform, &m_squareMesh);
-
-	if (m_cylinderVisible)
-		PrimitiveShapeDraw(pv * m_cylinderTransform, &m_cylinderMesh);
-
-	if (m_pyramidVisible)
-		PrimitiveShapeDraw(pv * m_pyramidTransform, &m_pyramidMesh);
-
-	if (m_sphereVisible)
-		PrimitiveShapeDraw(pv * m_sphereTransform, &m_sphereMesh);
 }
 
 bool GraphicsApp::SquareLoader()
