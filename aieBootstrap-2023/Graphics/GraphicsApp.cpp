@@ -30,54 +30,63 @@ bool GraphicsApp::startup()
 	// initialise gizmo primitive counts
 	Gizmos::create(10000, 10000, 10000, 10000);
 
-	// create simple camera transforms
+#pragma region CreateCameras
+	// Create a user controlled fly camera
 	m_flyCamera = new FlyCamera();
 	m_flyCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
 	m_flyCamera->SetColor(vec4(1, 1, 0, 1));
 
+	// Create a stationary camera facing the front
 	m_frontCamera = new StationaryCamera();
-	m_frontCamera->SetPosition(vec3(-10, 0, 0));
+	m_frontCamera->SetPosition(vec3(-20, 0, 0));
 	m_frontCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
 	m_frontCamera->SetColor(vec4(1, 0, 0, 1));
 
+	// Create a stationary camera facing the right
 	m_rightCamera = new StationaryCamera();
-	m_rightCamera->SetPosition(vec3(0, 0, 10));
+	m_rightCamera->SetPosition(vec3(0, 0, 20));
 	m_rightCamera->SetRotation(vec3(PI * 1.5f, 0, 0));
 	m_rightCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
 	m_rightCamera->SetColor(vec4(0, 0, 1, 1));
 
+	// Create a stationary camera facing the top
 	m_topCamera = new StationaryCamera();
-	m_topCamera->SetPosition(vec3(0, 10, 0));
+	m_topCamera->SetPosition(vec3(0, 20, 0));
 	m_topCamera->SetRotation(vec3(0, PI * 1.5f, 0));
 	m_topCamera->SetProjectionMatrix(glm::pi<float>() * 0.25f, getWindowWidth(),
 		getWindowHeight(), 0.1, 1000);
 	m_topCamera->SetColor(vec4(0, 1, 0, 1));
 
+	// Sets the current camera to the user controlled fly camera
 	m_curCamera = m_flyCamera;
+#pragma endregion
+
 	m_viewMatrix = m_curCamera->GetViewMatrix();
 	m_projectionMatrix = m_curCamera->GetProjectionMatrix();
 	
 	InitialisePlanets();
 	
-	m_ambientLight = { 0.5,0.5,0.5 };
+	m_ambientLight = { 0.5, 0.5, 0.5 };
 
 	Light light;
-	light.color = { 1,1,1 };
+	light.color = { 1, 1, 1 };
 	light.direction = { 1, -1, 1 };
 
 	m_emitter = new ParticleEmitter();
-	m_emitter->Initialise(1000, 500, .1f, 1.0f, 1, 5, 1, .1f,
+	m_emitter->Initialise(1000, 500, .1f, 1.0f, .5f, 2.5f, .5f, .05f,
 		glm::vec4(0, 0, 1, 1), glm::vec4(0, 1, 0, 1));
 
+#pragma region CreateScene
 	m_scene = new Scene(m_curCamera, glm::vec2(getWindowWidth(),
 		getWindowHeight()), light, m_ambientLight);
 
 	m_scene->AddPointLight(vec3(0), vec3(0, 1, 0), 50);
-	m_scene->AddPointLight(vec3(5, 3, 0), vec3(1,0,0), 50);
-	m_scene->AddPointLight(vec3(-5, 3, 0), vec3(0,0,1), 50);
+	m_scene->AddPointLight(vec3(5, 3, 0), vec3(1, 0, 0), 50);
+	m_scene->AddPointLight(vec3(-5, 3, 0), vec3(0, 0, 1), 50);
+#pragma endregion
 
 	return LaunchShaders();
 }
@@ -204,10 +213,7 @@ void GraphicsApp::draw() {
 
 	m_particleShader.bind();
 	m_particleShader.bindUniform("ProjectionViewModel", pv * m_particleEmitTransform);
-	if (m_particleVisible)
-	{
-		m_emitter->Draw();
-	}
+	m_emitter->Draw();
 
 	Gizmos::draw(m_projectionMatrix * m_viewMatrix);
 
@@ -366,11 +372,11 @@ bool GraphicsApp::LaunchShaders()
 	
 #pragma region InstanceOBJs
 	// Spear Model
-	m_scene->AddInstance(new Instance(m_spearTransform, &m_spearMesh, &m_normalLitShader, true));
+	m_scene->AddInstance(new Instance(m_spearTransform, &m_spearMesh, &m_normalLitShader, "Soul Spear", true));
 	// Kama Dagger Model
-	m_scene->AddInstance(new Instance(m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader, true));
+	m_scene->AddInstance(new Instance(m_kamadaggarTransform, &m_kamadaggarMesh, &m_normalLitShader, "Kama Dagger", true));
 	// Bunny Model
-	m_scene->AddInstance(new Instance(m_bunnyTransform, &m_bunnyMesh, &m_normalLitShader, false));
+	m_scene->AddInstance(new Instance(m_bunnyTransform, &m_bunnyMesh, &m_normalLitShader, "Bunny", false));
 
 #pragma endregion
 
@@ -387,14 +393,12 @@ void GraphicsApp::ImGUIRefresher()
 		if (ImGui::CollapsingHeader(name.c_str()))
 		{
 			vec3 lightPos = m_scene->GetPointLightPos(i);
-			std::string label = name + ": Position";
-			if (ImGui::DragFloat3(label.c_str(), &lightPos[0], 0.1f))
+			if (ImGui::DragFloat3((name + ": Position").c_str(), &lightPos[0], 0.1f))
 			{
 				m_scene->SetPointLightPos(i, lightPos);
 			}
 			vec3 lightColor = m_scene->GetPointLightColor(i);
-			label = name + ": Color";
-			if (ImGui::DragFloat3(label.c_str(), &lightColor[0], 0.1f))
+			if (ImGui::DragFloat3((name + ": Color").c_str(), &lightColor[0], 0.1f))
 			{
 				m_scene->SetPointLightColor(i, lightColor);
 			}
@@ -406,8 +410,8 @@ void GraphicsApp::ImGUIRefresher()
 	ImGui::Checkbox("Toggle Planets", &m_planetsVisible);
 	ImGui::Checkbox("Toggle Primitive Shapes", &m_primitiveShapesVisible);
 	ImGui::Checkbox("Toggle Models", &m_modelsVisible);
-	ImGui::Checkbox("Toggle Quad", &m_quadVisible);
-	ImGui::Checkbox("Toggle Particle System", &m_particleVisible);
+	//ImGui::Checkbox("Toggle Quad", &m_quadVisible);
+	ImGui::Checkbox("Toggle Particle System", m_emitter->Visible());
 	ImGui::End();
 
 	ImGui::Begin("Camera Settings");
@@ -429,50 +433,19 @@ void GraphicsApp::ImGUIRefresher()
 		{
 			m_curCamera = m_topCamera;
 		}
+
+		//if (ImGui::DragFloat3("Camera: Position".c_str(), &lightPos[0], 0.1f))
+		//{
+		//	m_scene->SetPointLightPos(i, lightPos);
+		//}
 	}
 	ImGui::SliderInt("Post Process Effect", &m_postProcessTarget, -1, 11);
 	ImGui::End();
 
 	if (m_planetsVisible)
 	{
-		std::vector<Planet*> planets = m_sun->GetPlanets();
 		ImGui::Begin("Solar System Settings");
-		for each (Planet* planet in planets)
-		{
-			std::string planetName = planet->GetName();
-			std::string label = planetName + "Settings";
-			if (ImGui::CollapsingHeader(planetName.c_str()))
-			{
-				label = "Toggle " + planetName;
-				ImGui::Checkbox(label.c_str(), planet->Visible());
-				planetName += ": ";
-				label = planetName + "Colour";
-				ImGui::SliderFloat4(label.c_str(), planet->Colour(), 0, 1);
-				label = planetName + "Orbit Speed";
-				ImGui::SliderFloat(label.c_str(), planet->OrbitSpeed(), 0, 20);
-				label = planetName + "Orbit Angle";
-				ImGui::SliderFloat(label.c_str(), planet->OrbitAngle(), 0, 2 * PI);
-				label = planetName + "Rotation Speed";
-				ImGui::SliderFloat(label.c_str(), planet->RotationSpeed(), 0, 20);
-				if (planet->GetParent())
-				{
-					label = planetName + "Distance From " + planet->GetParent()->GetName();
-					ImGui::SliderFloat(label.c_str(), planet->DistanceFromParent(), 0, 30);
-				}
-				label = planetName + "Toggle Ring";
-				ImGui::Checkbox(label.c_str(), planet->Ring());
-				label = planetName + "Ring Settings";
-				if (planet->HasRing() && ImGui::CollapsingHeader(label.c_str()))
-				{
-					label = planetName + "Ring Inner Radius";
-					ImGui::SliderFloat(label.c_str(), planet->RingInnerRadius(), 0, 20);
-					label = planetName + "Ring Outer Radius";
-					ImGui::SliderFloat(label.c_str(), planet->RingOuterRadius(), 0, 20);
-					label = planetName + "Ring Colour";
-					ImGui::SliderFloat4(label.c_str(), planet->RingColour(), 0, 1);
-				}
-			}
-		}
+		m_sun->ImGui();
 		ImGui::End();
 	}
 
@@ -489,37 +462,9 @@ void GraphicsApp::ImGUIRefresher()
 	if (m_modelsVisible)
 	{
 		ImGui::Begin("Models Settings");
-		std::list<Instance*> instances = m_scene->GetInstances();
-		int i = 1;
-		for each (Instance* instance in instances)
+		for each (Instance* instance in m_scene->GetInstances())
 		{
-			std::string name = "Object " + std::to_string(i);
-			if (ImGui::CollapsingHeader(name.c_str()))
-			{
-				std::string label = "Toggle " + name;
-				ImGui::Checkbox(label.c_str(), instance->Visible());
-				label = name + ": Position";
-				ImGui::DragFloat3(label.c_str(), instance->Position(), .01);
-				label = name + ": Scale";
-				if (ImGui::DragFloat(label.c_str(), instance->CurScale(), .01, .01, 100))
-				{
-					float scale = instance->GetCurScale() / instance->GetPrevScale();
-					instance->SetTransform(glm::scale(instance->GetTransform(), vec3(scale)));
-					instance->UpdateScale();
-				}
-				label = name + ": Rotation";
-				if (ImGui::DragFloat3(label.c_str(), instance->CurRotation(), .01))
-				{
-					vec3 angle = instance->GetPrevRotation() - instance->GetCurRotation();
-					glm::mat4 transform = instance->GetTransform();
-					transform = glm::rotate(transform, angle[0], vec3(1, 0, 0));
-					transform = glm::rotate(transform, angle[1], vec3(0, 1, 0));
-					transform = glm::rotate(transform, angle[2], vec3(0, 0, 1));
-					instance->SetTransform(transform);
-					instance->UpdateScale();
-				}
-			}
-			i++;
+			instance->ImGui();
 		}
 		ImGui::End();
 	}

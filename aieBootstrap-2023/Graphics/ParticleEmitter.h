@@ -42,6 +42,9 @@ public:
 	void SetPosition(glm::vec3 position) { m_position = position; }
 	void SetColor(glm::vec4 color);
 
+	// Getters
+	bool* Visible() { return &m_visible; }
+
 protected:
 	Particle* m_particles;
 	unsigned int m_firstDead;
@@ -70,4 +73,5 @@ protected:
 	glm::vec3 m_gravity = { 0, 0, 0 };
 	bool m_hasGravity = false;
 
+	bool m_visible = true;
 };

@@ -227,6 +227,9 @@ void ParticleEmitter::Update(float _dt, const glm::mat4& _cameraTransform)
 
 void ParticleEmitter::Draw()
 {
+	if (!m_visible)
+		return;
+
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, m_firstDead * 4 * sizeof(ParticleVertex), m_vertexData);
 	glBindVertexArray(m_vao);

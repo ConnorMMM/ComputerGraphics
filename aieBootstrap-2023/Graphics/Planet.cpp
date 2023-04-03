@@ -1,5 +1,7 @@
 #include "Planet.h"
 
+#include <imgui.h>
+
 using glm::vec3;
 using glm::vec4;
 using glm::mat4;
@@ -21,7 +23,7 @@ Planet::Planet(const char* planetName, float distanceFromParent,
 	m_colour = colour;
 
 	m_parent = nullptr;
-	m_matrix = mat4(1);
+	m_transform = mat4(1);
 
 	m_hasRing = false;
 	m_ringInnerRadius = 0;
@@ -40,12 +42,12 @@ void Planet::Update(float deltaTime)
 	m_rotation += deltaTime * m_orbitSpeed;
 
 	if (m_parent)
-		m_matrix[3] = glm::translate(glm::translate(mat4(1), m_parent->GetPosition()), 
+		m_transform[3] = glm::translate(glm::translate(mat4(1), m_parent->GetPosition()),
 			vec3(m_distanceFromParent * sin(m_rotation) * cos(m_orbitAngle),
 				 m_distanceFromParent * sin(m_rotation) * sin(m_orbitAngle),
 				 m_distanceFromParent * cos(m_rotation)))[3];
 
-	m_matrix = glm::rotate(m_matrix, deltaTime * m_rotationSpeed * 0.2f, vec3(1, 0, 0));
+	m_transform = glm::rotate(m_transform, deltaTime * m_rotationSpeed * 0.2f, vec3(1, 0, 0));
 
 	for each (Planet* child in m_children)
 	{
@@ -59,9 +61,9 @@ void Planet::Draw()
 	{
 		vec3 pos = GetPosition();
 
-		Gizmos::addSphere(pos, m_radius, 8, 8, m_colour, &m_matrix);
+		Gizmos::addSphere(pos, m_radius, 8, 8, m_colour, &m_transform);
 		if (m_hasRing)
-			Gizmos::addRing(pos, m_ringInnerRadius, m_ringOuterRadius, 9, m_ringColour, &m_matrix);
+			Gizmos::addRing(pos, m_ringInnerRadius, m_ringOuterRadius, 9, m_ringColour, &m_transform);
 	}
 
 	for each (Planet * child in m_children)
@@ -84,24 +86,32 @@ void Planet::AddChild(Planet* child)
 	child->SetParent(this);
 }
 
-vec3 Planet::GetPosition()
+void Planet::ImGui()
 {
-	vec3 pos = vec3(m_matrix[3][0], m_matrix[3][1], m_matrix[3][2]);
-
-	return pos;
-}
-
-std::vector<Planet*> Planet::GetPlanets()
-{
-	std::vector<Planet*> planets;
-	planets.push_back(this);
-	for each (Planet* child in m_children)
+	if (ImGui::CollapsingHeader(m_planetName.c_str()))
 	{
-		std::vector<Planet*> temp = child->GetPlanets();
-		for each (Planet* planet in temp)
+		ImGui::Checkbox(("Toggle " + m_planetName).c_str(), &m_visible);
+		if (m_visible)
 		{
-			planets.push_back(planet);
+			ImGui::SliderFloat4((m_planetName + ": Colour").c_str(), &m_colour[0], 0, 1);
+			ImGui::DragFloat((m_planetName + ": Orbit Speed").c_str(), &m_orbitSpeed, .1f);
+			ImGui::DragFloat((m_planetName + ": Orbit Angle").c_str(), &m_orbitAngle, .1f);
+			ImGui::DragFloat((m_planetName + ": Rotation Speed").c_str(), &m_rotationSpeed, .1f);
+			if (m_parent)
+			{
+				ImGui::DragFloat((m_planetName + ": Distance From " + m_parent->GetName()).c_str(), &m_distanceFromParent, .1f);
+			}
+			ImGui::Checkbox((m_planetName + ": Toggle Ring").c_str(), &m_hasRing);
+			if (m_hasRing && ImGui::CollapsingHeader((m_planetName + ": Ring Settings").c_str()))
+			{
+				ImGui::DragFloat((m_planetName + ": Ring Inner Radius").c_str(), &m_ringInnerRadius, .1f);
+				ImGui::DragFloat((m_planetName + ": Ring Outer Radius").c_str(), &m_ringOuterRadius, .1f);
+				ImGui::SliderFloat4((m_planetName + ": Ring Colour").c_str(), &m_ringColour[0], 0, 1);
+			}
+		}
+		for each (Planet* child in m_children)
+		{
+			child->ImGui();
 		}
 	}
-	return planets;
 }

@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <vector>
+#include <string>
 
 class Planet
 {
@@ -19,35 +20,24 @@ public:
 
 	void AddChild(Planet* child);
 
+	void ImGui();
 
-	Planet* GetParent() { return m_parent; }
-	glm::vec3 GetPosition();
-	std::vector<Planet*> GetPlanets();
-	const char* GetName() { return m_planetName; }
+	// Getters
+	glm::vec3 GetPosition() { return m_transform[3]; }
+	std::string GetName() { return m_planetName; }
 	bool HasRing() { return m_hasRing; }
 
+	// Setters
 	void SetParent(Planet* parent) { m_parent = parent; }
-	glm::mat4 GetMatrix() { return m_matrix; }
-
-	bool* Visible() { return &m_visible; }
-	float* Colour() { return &m_colour[0]; }
-	float* OrbitSpeed() { return &m_orbitSpeed; }
-	float* OrbitAngle() { return &m_orbitAngle; }
-	float* RotationSpeed() { return &m_rotationSpeed; }
-	float* DistanceFromParent() { return &m_distanceFromParent; }
-	
-	bool* Ring() { return &m_hasRing; }
-	float* RingInnerRadius() { return &m_ringInnerRadius; }
-	float* RingOuterRadius() { return &m_ringOuterRadius; }
-	float* RingColour() { return &m_ringColour[0]; }
+	glm::mat4 GetTransform() { return m_transform; }
 
 protected:
-	const char* m_planetName;
+	std::string m_planetName;
 
 	std::vector<Planet*> m_children;
 	Planet* m_parent;
 
-	glm::mat4 m_matrix;
+	glm::mat4 m_transform;
 	float m_radius;
 	float m_distanceFromParent;
 

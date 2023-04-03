@@ -141,7 +141,6 @@ protected:
 
 	bool m_planetsVisible = false;
 	bool m_quadVisible = false;
-	bool m_particleVisible = false;
 
 	bool m_primitiveShapesVisible = false;
 	bool m_squareVisible = false;
@@ -150,7 +149,4 @@ protected:
 	bool m_sphereVisible = false;
 	
 	bool m_modelsVisible = false;
-	bool m_bunnyVisible = false;
-	bool m_spearVisible = false;
-	bool m_kamadaggarVisible = true;
 };

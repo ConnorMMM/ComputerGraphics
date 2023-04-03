@@ -6,17 +6,22 @@
 #include "BaseCamera.h"
 #include "GraphicsApp.h"
 
-Instance::Instance(glm::mat4 transform, aie::OBJMesh* mesh, aie::ShaderProgram* shader, bool hasTexture)
+#include <imgui.h>
+
+Instance::Instance(glm::mat4 transform, aie::OBJMesh* mesh, aie::ShaderProgram* shader, 
+	std::string name, bool hasTexture)
 {
 	m_transform = transform;
 	m_mesh = mesh;
 	m_shader = shader;
+
+	m_name = name;
 	m_hasTexture = hasTexture;
 }
 
 Instance::Instance(glm::vec3 position, glm::vec3 eulerAngles, glm::vec3 scale, 
-	aie::OBJMesh* mesh, aie::ShaderProgram* shader, bool hasTexture) : 
-	m_mesh(mesh), m_shader(shader), m_hasTexture(hasTexture)
+	aie::OBJMesh* mesh, aie::ShaderProgram* shader, std::string name, bool hasTexture) :
+	m_mesh(mesh), m_shader(shader), m_name(name), m_hasTexture(hasTexture)
 {
 	m_transform = MakeTransform(position, eulerAngles, scale);
 }
@@ -63,4 +68,27 @@ glm::mat4 Instance::MakeTransform(glm::vec3 position, glm::vec3 eulerAngles, glm
 		* glm::rotate(glm::mat4(1), glm::radians(eulerAngles.y), glm::vec3(0, 1, 0))
 		* glm::rotate(glm::mat4(1), glm::radians(eulerAngles.x), glm::vec3(1, 0, 0))
 		* glm::scale(glm::mat4(1), scale);
+}
+
+void Instance::ImGui()
+{
+	if (ImGui::CollapsingHeader(m_name.c_str()))
+	{
+		ImGui::Checkbox(("Toggle " + m_name).c_str(), &m_visible);
+		ImGui::DragFloat3((m_name + ": Position").c_str(), &m_transform[3][0], .01);
+		if (ImGui::DragFloat((m_name + ": Scale").c_str(), &m_curScale, .01, .01, 100))
+		{
+			float diff = m_curScale / m_prevScale;
+			m_transform = glm::scale(m_transform, vec3(diff));
+			m_prevScale = m_curScale;
+		}
+		if (ImGui::DragFloat3((m_name + ": Rotation").c_str(), &m_curRotation[0], .01))
+		{
+			vec3 diff = m_prevRotation - m_curRotation;
+			m_transform = glm::rotate(m_transform, diff[0], vec3(1, 0, 0));
+			m_transform = glm::rotate(m_transform, diff[1], vec3(0, 1, 0));
+			m_transform = glm::rotate(m_transform, diff[2], vec3(0, 0, 1));
+			m_prevRotation = m_curRotation;
+		}
+	}
 }
