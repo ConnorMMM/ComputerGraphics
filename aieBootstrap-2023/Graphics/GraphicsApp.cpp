@@ -170,10 +170,14 @@ void GraphicsApp::draw() {
 	m_projectionMatrix = m_curCamera->GetProjectionMatrix();
 
 #pragma region DrawCameras
-	m_flyCamera->Draw();
-	m_frontCamera->Draw();
-	m_rightCamera->Draw();
-	m_topCamera->Draw();
+	if (m_curCamera != dynamic_cast<BaseCamera*>(m_flyCamera))
+		m_flyCamera->Draw();
+	if (m_curCamera != dynamic_cast<BaseCamera*>(m_frontCamera))
+		m_frontCamera->Draw();
+	if (m_curCamera != dynamic_cast<BaseCamera*>(m_rightCamera))
+		m_rightCamera->Draw();
+	if (m_curCamera != dynamic_cast<BaseCamera*>(m_topCamera))
+		m_topCamera->Draw();
 #pragma endregion
 
 #pragma region DrawSolarSystem
@@ -202,13 +206,7 @@ void GraphicsApp::draw() {
 
 #pragma region DrawModels
 	if (m_modelsVisible)
-	{
 		m_scene->Draw();
-
-		// Draw the bunny setup in BunnyLoader()
-		//if (m_bunnyVisible)
-		//	ObjDraw(pv, m_bunnyTransform, &m_bunnyMesh, &m_phongShader);
-	}
 #pragma endregion
 
 	m_particleShader.bind();
@@ -385,35 +383,15 @@ bool GraphicsApp::LaunchShaders()
 
 void GraphicsApp::ImGUIRefresher()
 {
-	ImGui::Begin("Light Settings");
-	int numOfLights = m_scene->GetNumberOfLights();
-	for (int i = 0; i < numOfLights; i++)
-	{
-		std::string name = "Light " + std::to_string(i + 1);
-		if (ImGui::CollapsingHeader(name.c_str()))
-		{
-			vec3 lightPos = m_scene->GetPointLightPos(i);
-			if (ImGui::DragFloat3((name + ": Position").c_str(), &lightPos[0], 0.1f))
-			{
-				m_scene->SetPointLightPos(i, lightPos);
-			}
-			vec3 lightColor = m_scene->GetPointLightColor(i);
-			if (ImGui::DragFloat3((name + ": Color").c_str(), &lightColor[0], 0.1f))
-			{
-				m_scene->SetPointLightColor(i, lightColor);
-			}
-		}
-	}
-	ImGui::End();
-
+#pragma region Toggle Settings
 	ImGui::Begin("Toggle Settings");
 	ImGui::Checkbox("Toggle Planets", &m_planetsVisible);
 	ImGui::Checkbox("Toggle Primitive Shapes", &m_primitiveShapesVisible);
 	ImGui::Checkbox("Toggle Models", &m_modelsVisible);
-	//ImGui::Checkbox("Toggle Quad", &m_quadVisible);
 	ImGui::Checkbox("Toggle Particle System", m_emitter->Visible());
 	ImGui::End();
-
+#pragma endregion
+#pragma region Camera Settings
 	ImGui::Begin("Camera Settings");
 	if (ImGui::CollapsingHeader("Cameras"))
 	{
@@ -441,14 +419,16 @@ void GraphicsApp::ImGUIRefresher()
 	}
 	ImGui::SliderInt("Post Process Effect", &m_postProcessTarget, -1, 11);
 	ImGui::End();
-
+#pragma endregion
+#pragma region Solar System Settings
 	if (m_planetsVisible)
 	{
 		ImGui::Begin("Solar System Settings");
 		m_sun->ImGui();
 		ImGui::End();
 	}
-
+#pragma endregion
+#pragma region Primitive Shape Settings
 	if (m_primitiveShapesVisible)
 	{
 		ImGui::Begin("Primitive Settings");
@@ -458,16 +438,39 @@ void GraphicsApp::ImGUIRefresher()
 		ImGui::Checkbox("Toggle Sphere", &m_sphereVisible);
 		ImGui::End();
 	}
-
+#pragma endregion
+#pragma region Model And Light Settings
 	if (m_modelsVisible)
 	{
 		ImGui::Begin("Models Settings");
-		for each (Instance* instance in m_scene->GetInstances())
+		for each (Instance * instance in m_scene->GetInstances())
 		{
 			instance->ImGui();
 		}
 		ImGui::End();
+
+		ImGui::Begin("Light Settings");
+		int numOfLights = m_scene->GetNumberOfLights();
+		for (int i = 0; i < numOfLights; i++)
+		{
+			std::string name = "Light " + std::to_string(i + 1);
+			if (ImGui::CollapsingHeader(name.c_str()))
+			{
+				vec3 lightPos = m_scene->GetPointLightPos(i);
+				if (ImGui::DragFloat3((name + ": Position").c_str(), &lightPos[0], 0.1f))
+				{
+					m_scene->SetPointLightPos(i, lightPos);
+				}
+				vec3 lightColor = m_scene->GetPointLightColor(i);
+				if (ImGui::DragFloat3((name + ": Color").c_str(), &lightColor[0], 0.1f))
+				{
+					m_scene->SetPointLightColor(i, lightColor);
+				}
+			}
+		}
+		ImGui::End();
 	}
+#pragma endregion
 }
 
 bool GraphicsApp::QuadLoader()
