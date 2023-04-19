@@ -166,28 +166,54 @@ vec4 DistanceFog(vec2 texCoord)
 
 }
 
+#define DISPLAY_GAMMA 1.8
+#define USE_CHROMATIC_ABBERATION
+
+vec2 uvsToUv(vec2 uvs){
+    return (uvs) * vec2(windowWidth / windowHeight, 1.0) + vec2(.5, .5);
+}
+
 vec4 DepthOfField(vec2 texCoord)
 {
-    return texture(colorTarget, texCoord);
+    vec2 uv = texCoord;
+    vec2 uvs = (texCoord - vec2(windowWidth, windowHeight) * .5);
+    
+    //chromatic abberation
+    #ifdef USE_CHROMATIC_ABBERATION
+    vec3 color = vec3(0,0,0);
+    color.x += texture(colorTarget, uvsToUv(uvs)).x * .66;
+    color.xy += texture(colorTarget, uvsToUv(uvs * .995)).xy * .33;
+    color.y += texture(colorTarget, uvsToUv(uvs * .990)).y * .33;
+    color.yz += texture(colorTarget, uvsToUv(uvs * .985)).yz * .33;
+    color.z += texture(colorTarget, uvsToUv(uvs * .980)).z * .66;
+    #else
+    vec3 color = texture(colorTarget, uvsToUv(uvs)).xyz;
+    #endif
+    
+    //tone mapping
+    color = vec3(1.7, 1.8, 1.9) * color / (1.0 + color);
+    
+    //inverse gamma correction
+	return vec4(pow(color, vec3((1.0) / (DISPLAY_GAMMA))), 1.0);
 }
+
+float hash(in float n) { return fract(sin(n)*43758.5453123); }
 
 vec4 NightVision(vec2 texCoord)
 {
-    vec4 color = texture(colorTarget, texCoord);
-
-    float gridlineIntensity = 0.75f;
-    float gridlineXCount = windowWidth / 3;
-    float gridlineYCount = windowHeight / 3;
-    float gridlineXDelta = sin(time * 0.001f);
-    float gridlineYDelta = sin(time * -0.001f);
-
-    float gridlineX = max(0, sin((texCoord.x - gridlineXDelta) * gridlineXCount) - 0.9f) * gridlineIntensity;
-    float gridlineY = max(0, sin((texCoord.y - gridlineYDelta) * gridlineYCount) - 0.9f) * gridlineIntensity;
-
-    color -= max(gridlineY, gridlineX);
-    return color;
-
-
+	vec2 u = texCoord * 2. - 1.;
+	vec2 n = u * vec2(windowWidth / windowHeight, 1.0);
+	vec3 c = texture(colorTarget, texCoord).xyz;
+    
+	// flicker, grain, vignette, fade in
+	c += sin(hash(time)) * 0.01;
+	c += hash((hash(n.x) + n.y) * time) * 0.5;
+	c *= smoothstep(length(n * n * n * vec2(0.075, 0.4)), 1, 0.4);
+    c *= smoothstep(0.001, 3.5, time) * 1.5;
+	
+	c = dot(c, vec3(0.2126, 0.7152, 0.0722)) * vec3(0.2, 1.5 - hash(time) * 0.1, 0.4);
+    
+    return vec4(c,1.0);
 }
 
 void main()

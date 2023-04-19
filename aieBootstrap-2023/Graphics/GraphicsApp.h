@@ -62,7 +62,7 @@ protected:
 	// for textured OBJs
 	void ObjDraw(glm::mat4 pv, glm::mat4 transform, aie::OBJMesh* objMesh, aie::ShaderProgram* shader);
 	
-	int m_postProcessTarget = 9;
+	int m_postProcessTarget = 11;
 
 	
 	bool SquareLoader();
