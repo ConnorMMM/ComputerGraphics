@@ -17,11 +17,14 @@ public:
 
 	virtual void Update(float deltaTime);
 	void Draw();
+
+	void ImGui();
 	
 	// Getters
 	vec3 GetPosition() 
 		{ return m_position; }
-	mat4 GetWorldTransform();
+	mat4 GetWorldTransform()
+		{ return m_worldTranform; }
 	mat4 GetProjectionViewMatrix() 
 		{ return m_projectionViewTransform; }
 	mat4 GetProjectionMatrix()

@@ -433,11 +433,7 @@ void GraphicsApp::ImGUIRefresher()
 		{
 			m_curCamera = m_topCamera;
 		}
-
-		//if (ImGui::DragFloat3("Camera: Position".c_str(), &lightPos[0], 0.1f))
-		//{
-		//	m_scene->SetPointLightPos(i, lightPos);
-		//}
+		m_curCamera->ImGui();
 	}
 	ImGui::SliderInt("Post Process Effect", &m_postProcessTarget, -1, 11);
 	ImGui::End();
